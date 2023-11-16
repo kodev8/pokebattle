@@ -21,8 +21,8 @@ class Config:
     BLUE = (0, 0, 255)
 
     MAX_POKEMON = 900  # max number of pokemon to search through
-    POKEMON_COUNT = 5   # number of pokemon for the trainer
-    MAX_CHAL_COUNT = 2  # max number of pokemon the challenger can have
+    POKEMON_COUNT = 2   # number of pokemon for the trainer
+    MAX_CHAL_COUNT = 1 # max number of pokemon the challenger can have
     
     FRAMERATE =  60 # default frame rate
 
@@ -32,32 +32,33 @@ class Config:
     def make_fonts(font_type='default'):
         """ this funciton is used to initialize fonts. 
         This can only be done in the file where pygame is initialized
-        so this function just maintains a]dict of some fonts to be used throughout the game"""
+        so this function just maintains a dict of some fonts to be used throughout the game"""
 
 
         fonts = {
-        "default": {
-            "file": r"assets\fonts\poke_font.ttf",
-            "sizes":{
-            "small": 8,
-            "med-small": 10,
-            "med": 13,
-            "large": 20,
-            'xl': 25
-                }
-        },
-        "solid": {
-            "file": r"assets\fonts\poke_solid.ttf",
-            "sizes":{
-            "small": 12,
-            "med-small": 15,
-            "med": 19,
-            "large": 23,
-            'xl': 28
+            "default": {
+                "file": r"assets\fonts\poke_font.ttf",
+                "sizes":{
+                "small": 8,
+                "med-small": 10,
+                "med": 13,
+                "large": 20,
+                'xl': 25
+                    }
+            },
+            "solid": {
+                "file": r"assets\fonts\poke_solid.ttf",
+                "sizes":{
+                "small": 12,
+                "med-small": 15,
+                "med": 19,
+                "large": 23,
+                'xl': 28
 
+                    }
                 }
             }
-        }
+        
         if font_type not in fonts:
             font_type = 'default'
 

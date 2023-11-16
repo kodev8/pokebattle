@@ -31,11 +31,15 @@ class GameState:
         # responsible for playing levels; described below
         self.gameplayer = GamePlayer(self) 
 
-        # dict of allowed keys: state, values: rerender
+        # dict of allowed - 
+        # keys: state
+        # values: should rerender
+        
         # rerender handles whether the render function of the 
         # level should be called everytime the player switches to that level
         # as the game grows I would consider using a state pattern instead
         # this is used for simplicity
+
         self._states = {
             'welcome': False,
             'choose': False,
@@ -51,9 +55,14 @@ class GameState:
 
         # checks if the updated state is a valid state and if it is not already the current state
         if state in self._states and state != self.current_state:
+
             self.previous_state = self.current_state
             self.current_state = state
-            self.gameplayer.render_level()
+
+
+            # use should_not_rerender
+            should_not_rerender = self.previous_state == 'controls'
+            self.gameplayer.render_level(should_not_rerender)
     
 
 class GamePlayer:
@@ -85,7 +94,7 @@ class GamePlayer:
         LevelStore.reset()  # execute reset on level factory class
 
 
-    def render_level(self):
+    def render_level(self, should_not_rerender=False):
         """Render the current level if it has not already been rendered or if it rerender is true"""
 
         # if the current state level has not been already accessed, or if it is to be rerender
@@ -93,9 +102,8 @@ class GamePlayer:
         # this is similar to the flyweight pattern and helps us to not constantly 
         # rerender levels from scrath each time it is called when necessary
 
-        if self.gamestate.current_state not in self.__levels or self.gamestate._states[self.gamestate.current_state]:
+        if self.gamestate.current_state not in self.__levels or (self.gamestate._states[self.gamestate.current_state] and not should_not_rerender):
             self.__levels[self.gamestate.current_state] = LevelFactory.create_level(level_type=self.gamestate.current_state, screen=self.gamestate.screen, gamestate=self.gamestate)
-        
         return self.__levels[self.gamestate.current_state]
     
     def play_level(self):

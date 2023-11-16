@@ -121,6 +121,6 @@ class HitDetection(Hit):
 
                     # play the collide noise only once until a new collision is detected
                     if self.__play_sound == 0:
-                        pygame.mixer.Sound(r'assets/sounds/collide.wav').play()
+                        pygame.mixer.Sound(r'assets/sounds/collide.ogg').play()
 
                         self.__play_sound += 1

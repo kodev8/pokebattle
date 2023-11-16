@@ -69,7 +69,7 @@ class WelcomeHandler(EventHandler):
                         self.gamestate.change_state('loading')
 
                 elif isinstance(self.oak.current_state, OakWin) and event.key == pygame.K_t:
-                    self.gamestate.change_state(self.gamestate.previous_state)
+                    self.gamestate.change_state('explore_hometown')
 
                 
 
@@ -157,7 +157,7 @@ class ChooseHandler(EventHandler):
 
                             # if the number of chosen pokemon is less than 3 we add it to the list of chosen pokemon
                             if len(self._fields['chosen']) < Config.POKEMON_COUNT :
-                                pygame.mixer.Sound(r'assets/sounds/poke-click.wav').play() # play click sound
+                                pygame.mixer.Sound(r'assets/sounds/poke-click.ogg').play() # play click sound
                                 self.choose_level_data.set_field('chosen', tile)
 
 
@@ -240,7 +240,7 @@ class ExploreHandler(EventHandler):
                         if pygame.sprite.collide_rect(self.trainer_mediator.notify('get') , item):
 
                             # play the pick up sound and add the item to the bag
-                            pygame.mixer.Sound(r'assets/sounds/found-item.wav').play()
+                            pygame.mixer.Sound(r'assets/sounds/found-item.ogg').play()
                             self.trainer_mediator.notify_bag('add_item', item)
 
                 # toggle the bike when f is pressed
@@ -295,21 +295,21 @@ class ControlHandler(EventHandler):
             if event.type == pygame.KEYDOWN:
             
 
-                    # if the m button is pressed and we are already on the controls page, it will switch back to the previous page
-                    if self.gamestate.current_state == 'controls':
-                        if event.key == pygame.K_c:
+                # if the c button is pressed and we are already on the controls page, it will switch back to the previous page
+                if self.gamestate.current_state == 'controls':
+                    if event.key == pygame.K_c:
+                        self.gamestate.change_state(self.gamestate.previous_state)
 
-                            self.gamestate.change_state(self.gamestate.previous_state)
-                        elif event.key == pygame.K_RIGHT:
-                            self.fetcher.forward_page()
+                    elif event.key == pygame.K_RIGHT:
+                        self.fetcher.forward_page()
 
-                        elif event.key == pygame.K_LEFT:
-                            self.fetcher.back_page()
-                    # otherwise switch to the control page
-                    else:
-                        if event.key == pygame.K_c:
+                    elif event.key == pygame.K_LEFT:
+                        self.fetcher.back_page()
 
-                            self.gamestate.change_state('controls')
+                # otherwise switch to the control page
+                else:
+                    if event.key == pygame.K_c:
+                        self.gamestate.change_state('controls')
 
                
 

@@ -239,7 +239,7 @@ class HomeTownLevel(Level):
 
         # control music player 
         self.music = 0 # makes sure the music is only play once
-        self.sound =  pygame.mixer.Sound(r'assets/sounds/battle-start.wav')
+        self.sound =  pygame.mixer.Sound(r'assets/sounds/battle-start.ogg')
 
         # a timer to control the blink screen when a battle is initiated
         timer = Timer('delay_blink_screen', Config.FRAMERATE * 3)
@@ -433,7 +433,7 @@ class BattleLevel(Level):
             pokemon.initialize_for_fight(self.bd)
 
         self._music = 0 # ontrol music to play oce
-        self.sound = pygame.mixer.Sound(r'assets/sounds/battle-repeat.wav')
+        self.sound = pygame.mixer.Sound(r'assets/sounds/battle-repeat.ogg')
        
     def play_level(self):
 
