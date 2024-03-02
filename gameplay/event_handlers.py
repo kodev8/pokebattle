@@ -6,7 +6,7 @@ from config.fetcher import Fetcher
 from config.config import Config
 from gameplay.dataobservers import DataObservable
 from abc import ABC, abstractmethod
-
+import asyncio
 # create singleton gamesate
 
 class Handler(ABC):
@@ -33,10 +33,10 @@ class EventHandler(Handler):
         self.next_handler = None
         self.gamestate = gamestate
 
-    async def handle(self, state, event):
+    def handle(self, state, event):
         """ handle key and/or mouse events in the given state"""
         if self.next_handler:
-            return await self.next_handler.handle(state, event)
+            return self.next_handler.handle(state, event)
         return None
 
 
@@ -48,7 +48,7 @@ class WelcomeHandler(EventHandler):
         self.oak = ProfessorOak()
         self.gameplayer = gameplayer
 
-    async def handle(self, state, event):
+    def handle(self, state, event):
         if state == 'welcome' and self.gamestate.current_state == state:
             
             # if the space bar is pressed we update professor oak's state in the speech 
@@ -72,7 +72,7 @@ class WelcomeHandler(EventHandler):
                     self.gamestate.change_state('explore_hometown')
             return True
             
-        return await super().handle(state, event)
+        return super().handle(state, event)
 
 class ChooseHandler(EventHandler):
     """handles events when picking pokemon to start a  new  game"""
@@ -101,34 +101,30 @@ class ChooseHandler(EventHandler):
     def fields(self, new_fields):
             self._fields = new_fields
 
-    async def handle_keys(self, event):
+    def handle_keys(self, event):
         """ handle key events in the chooselevel"""
 
         if event.type == pygame.KEYDOWN:
-            print(self.fetcher.IS_FETCHING)
-            
-            # swich pages forawrd and back and clear the refernce of current tiles each time
+           
+            if self.fetcher.IS_FETCHING: 
+                # blocks the user from fetching too many pages while data is being fetched
+                # or going back during fetching which could cause an error
+                return
         
             # Switch pages forward and back and clear the reference of current tiles each time
             if event.key == pygame.K_SPACE or event.key == pygame.K_RIGHT:
-                if not self.fetcher.IS_FETCHING:
-                    self.fetcher.IS_FETCHING = True
-                    # print(self.fetcher.IS_FETCHING)
-                    # if not self.fetcher.IS_FETCHING:
-                    await self.fetcher.forward_page()
-                    self.choose_level_data.reset_field('current_tiles')
-                    self.fetcher.IS_FETCHING = False
-                else:
-                    print('I WAS BLOCKED')
+                
+                
+                asyncio.create_task(self.fetcher.forward_page())
+
     
             elif event.key == pygame.K_b or event.key == pygame.K_LEFT:
                 self.fetcher.back_page()
-                self.choose_level_data.reset_field('current_tiles')
                 
             # add pokemon to the trainers lineup and go to exploring
             if len(self._fields['chosen']) == Config.POKEMON_COUNT and event.key == pygame.K_RETURN:
-                    for pokemon in self._fields['chosen']:
-                        self.trainer_mediator.notify_pokemon('add_pokemon', pokemon[1])
+                    for pokemon in self._fields['chosen'].values():
+                        self.trainer_mediator.notify_pokemon('add_pokemon', pokemon)
                     
                     # choose level handler is finished and detached from the observer
                     self.choose_level_data.detach(self)
@@ -137,54 +133,65 @@ class ChooseHandler(EventHandler):
 
     def handle_mouse(self, event):
         """ handle mouse events in the choose level"""
+
+        # if we are fetching data, we do not want to handle mouse events
+        if self.fetcher.IS_FETCHING:
+            return
+        
         mouse_pos = pygame.mouse.get_pos()
 
-        tiles = self._fields['current_tiles']
+        # tiles = self._fields['current_tiles']
+        local_pokemon = self.fetcher.fetch_local()
+        
+        if not local_pokemon or not all(p.get('tile') for p in local_pokemon):
+            # make sure all tiles have been set up
+            return
 
         # check if any rect of the tiles collide with the mouse
-        if all(not tile[0].rect.collidepoint(mouse_pos) for tile in tiles):
+        if all(not pk_data['tile'].rect.collidepoint(mouse_pos) for pk_data in local_pokemon):
             self.choose_level_data.reset_field('hover')
+            return
 
-        else:
-            # for tile in self.choose_level_data.current_pokemon_tiles:
-            for tile in tiles:
+        # for tile in self.choose_level_data.current_pokemon_tiles:
+        for pk_data in local_pokemon:
+            # check the current pokemon tiles to find which is colliding with the mouse
+            if not pk_data['tile'].rect.collidepoint(mouse_pos):
+                continue
 
-                # check the current pokemon tiles to find which is colliding with the mouse
-                if tile[0].rect.collidepoint(mouse_pos):
-                    
-                    # if a tile is not already chosen then set it to the hover tile
-                    if tile[0] not in [x[0] for x in self._fields['chosen']]:
-                        self.choose_level_data.set_field('hover', tile[0], unique=True)
+            # chosen_tiles = [p.get('tile') for p in ]
+            # if a tile is not already chosen then set it to the hover tile
+            if pk_data['tile'] not in self._fields['chosen']:
+                self.choose_level_data.set_field('hover', pk_data['tile'], unique=True)
 
-                        # if it is clicked on, remove it from being hovered
-                        if event.type == pygame.MOUSEBUTTONDOWN:
-                            self.choose_level_data.reset_field('hover')
+                # if it is clicked on, remove it from being hovered
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.choose_level_data.reset_field('hover')
 
-                            # if the number of chosen pokemon is less than 3 we add it to the list of chosen pokemon
-                            if len(self._fields['chosen']) < Config.POKEMON_COUNT :
-                                pygame.mixer.Sound(r'./assets/sounds/poke-click.ogg').play() # play click sound
-                                self.choose_level_data.set_field('chosen', tile)
+                    # if the number of chosen pokemon is less than the predefined number of pokemon, we add it to the list of chosen pokemon
+                    if len(self._fields['chosen']) < Config.POKEMON_COUNT :
+                        pygame.mixer.Sound(r'./assets/sounds/poke-click.ogg').play() # play click sound
+                        self.choose_level_data.set_field('chosen', {pk_data['tile']: pk_data})
 
 
-                    # if the tile is already chosen
-                    else:
-                        # if we click on it again it should be removed from the chosen field
-                        if event.type == pygame.MOUSEBUTTONDOWN:
-                            self.choose_level_data.unset_field('chosen', tile)
+            # if the tile is already chosen
+            else:
+                # if we click on it again it should be removed from the chosen field
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.choose_level_data.unset_field('chosen', pk_data['tile'])
 
 
     def observe_update(self, field, data):
         """ used to accept updates from the observable"""
         self._fields[field] = data
 
-    async def handle(self, state, event): # handles keyboar and mouse movemnts
+    def handle(self, state, event): # handles keyboar and mouse movemnts
         if state == 'choose' and self.gamestate.current_state == state:
 
-            await self.handle_keys(event)
+            self.handle_keys(event)
             self.handle_mouse(event)
 
             return True
-        return await super().handle(state, event)
+        return super().handle(state, event)
 
 
 class ExploreHandler(EventHandler):
@@ -204,8 +211,6 @@ class ExploreHandler(EventHandler):
         self.explore_level_data = data_observable
         self.explore_level_data.attach(self)
 
-    
-
     def observe_update(self, field, data):
         """ used to accept updates from the observable"""
         self._fields[field] = data
@@ -221,11 +226,12 @@ class ExploreHandler(EventHandler):
     def fields(self, new_fields):
             self._fields = new_fields
 
-    async def handle(self, state, event):
+    def handle(self, state, event):
         if 'explore' in state and state in self.gamestate.current_state:
             
             # handle the animation when the trainer stops moving
-            if event.type == pygame.KEYUP and event.key in [pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d]:
+            if event.type == pygame.KEYUP:
+            # and event.key in [pygame.K_w, pygame.K_a, pygame.K_s, pygame.K_d]:
                 self.trainer_mediator.notify('stand')
                 
             if event.type == pygame.KEYDOWN:
@@ -259,7 +265,7 @@ class ExploreHandler(EventHandler):
 
             return True
         
-        return await super().handle(state, event)
+        return super().handle(state, event)
     
 
 class BattleHandler(EventHandler):
@@ -269,12 +275,17 @@ class BattleHandler(EventHandler):
         super().__init__(gamestate)
         # define a list of allowed events and their corresponding values
         # values are used to index the pokemons move and select the correct one
-        self.allowed_events = {pygame.K_1:1, pygame.K_2:2, pygame.K_3:3, pygame.K_4:4} # dict used to help index the list of attck moves
+        self.allowed_events = {
+                                pygame.K_1:1, 
+                                pygame.K_2:2, 
+                                pygame.K_3:3, 
+                                pygame.K_4:4
+                               } # dict used to help index the list of attck moves
         self._music = 0 # handle playing music only once
 
         self.trainer_mediator = trainer_mediator
 
-    async def handle(self, state, event):
+    def handle(self, state, event):
         
         if state == 'battle' and self.gamestate.current_state == state:
 
@@ -286,7 +297,7 @@ class BattleHandler(EventHandler):
                     att_pokemon.attack(self.trainer_mediator.notify_pokemon('get_mediator'), self.allowed_events[event.key]) # attack using mediator
 
             return True
-        return await super().handle(state, event)
+        return super().handle(state, event)
     
 class ControlHandler(EventHandler):
     """ handle key events in the controls state"""
@@ -295,11 +306,10 @@ class ControlHandler(EventHandler):
         super().__init__(gamestate)
         self.fetcher = fetcher
 
-    async def handle(self, state, event):
+    def handle(self, state, event):
         # handles whether to display controls or not
         if state == 'controls':
             if event.type == pygame.KEYDOWN:
-            
 
                 # if the c button is pressed and we are already on the controls page, it will switch back to the previous page
                 if self.gamestate.current_state == 'controls':
@@ -317,8 +327,6 @@ class ControlHandler(EventHandler):
                     if event.key == pygame.K_c:
                         self.gamestate.change_state('controls')
 
-               
-
             return True
-        return await super().handle(state, event)
+        return super().handle(state, event)
     

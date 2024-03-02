@@ -14,7 +14,7 @@ class SpriteSheet:
             # load the json with the coordinates of each animation
             self.animations = json.load(f)
     
-    def get_sprite(self, x, y, w, h, scale):
+    def get_sprite(self, x, y, w, h, scale) -> pygame.Surface:
         
         """displayes the sprite on a pyagme surface"""
         # empty surface
@@ -29,7 +29,7 @@ class SpriteSheet:
         # return the scaled image
         return  pygame.transform.scale(sprite, (w*scale[0], h*scale[1]))
     
-    def parse_sheet(self, name, scale=Config.SPRITE_SCALE, format=(28, 32)):
+    def parse_sheet(self, name, scale=Config.SPRITE_SCALE, format=None) -> pygame.Surface:
         
         """ gets the sprites coordinates from the json file and returns
         the sprite on a new surface"""
@@ -37,8 +37,8 @@ class SpriteSheet:
         coords = self.animations['frames'][name]['frame']
 
         if format:
-            wratio = 28/coords['w']
-            hratio = 32/coords['h']
+            wratio = format[0]/coords['w']
+            hratio = format[1]/coords['h']
             scale = (wratio * Config.SPRITE_SCALE[0], hratio * Config.SPRITE_SCALE[1])
             
         return self.get_sprite(coords['x'], coords['y'], coords['w'], coords['h'], scale)

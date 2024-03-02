@@ -70,8 +70,8 @@ class LevelFactory:
             return WelcomeLevelCreator.create(screen, gamestate)
         elif level_type == 'battle':
             return BattleLevelCreator.create(screen, gamestate)
-        elif level_type == 'loading':
-            return LoadingLevelCreator.create(screen, gamestate)
+        # elif level_type == 'loading':
+        #     return LoadingLevelCreator.create(screen, gamestate)
         elif level_type == 'controls':
             return ControlsLevelCreator.create(screen, gamestate)
         else:
@@ -139,15 +139,15 @@ class BattleLevelCreator(AbstractCreator):
 
         return BattleLevel(screen, gamestate, renderer, trainer_mediator=LevelStore.trainer_mediator)
 
-class LoadingLevelCreator(AbstractCreator):
-    @staticmethod
-    def create(screen, gamestate):
-        renderer = LoadingRenderer(
-            backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'./assets/images/loading.jpg'
-        )
+# class LoadingLevelCreator(AbstractCreator):
+#     @staticmethod
+#     def create(screen, gamestate):
+#         renderer = LoadingRenderer(
+#             backdrop_renderer=GameMapBackDrop,
+#             backdrop_file=r'./assets/images/loading.jpg',
+#         )
 
-        return LoadingLevel(screen, gamestate, renderer)
+#         return LoadingLevel(screen, gamestate, renderer, fetcher=LevelStore.fetcher)
 
 class ControlsLevelCreator(AbstractCreator):
     @staticmethod

@@ -1,9 +1,6 @@
-# Pokemon API
-import aiohttp
 import asyncio
 import math
 from config.config import Config
-from aiohttp.client_exceptions import ClientConnectorError
 from abc import ABC, abstractmethod
 import random
 import platform
@@ -70,13 +67,15 @@ class FetchPokemon(Fetcher):
     on initialization
     """
     _LIMIT = 16 # limit the number of pokemon on each fetch which is the number of pokemon to be displayed on each page
-    _counter = 0 # used to check the total of asynchronous fetches have been made
+    _counter = -1 # used to check the total of asynchronous fetches have been made (first fetch is a two step fetch for loading screen effect)
     _page = 1 # initial page id set to 1; page to notify the user of the current page
 
     __max_page = math.ceil(Config.MAX_POKEMON/_LIMIT ) # calculate max number of pages
-    _data = {page_number: [] for page_number in range(1,__max_page+1)} # set up empty list of pokemon for each page
+    _data = { page_number: [] for page_number in range(1,__max_page+1)} # set up empty list of pokemon for each page
+    
     _ERROR = False # Error flag to check if there is an conenctivity error
     IS_FETCHING = False
+    PROGRESS = 0
     
     def __init__(self, async_method : FetchMethod, local_method : FetchMethod):
         super().__init__()
@@ -106,14 +105,12 @@ class FetchPokemon(Fetcher):
     @property
     def counter(self) -> int:
         """ gives access to the class variable counter"""
-
         return FetchPokemon._counter
     
-    @counter.setter
-    def counter(self, _):
-        """ used to increment the count by 1 regardles of the value provided;
-        _ used as a throw away variable"""
+    def increment_counter(self):
+        """ increment the counter by 1"""
         FetchPokemon._counter += 1
+
 
     async def forward_page(self):
         """ go forward a page and fetch it's data"""
@@ -123,24 +120,27 @@ class FetchPokemon(Fetcher):
         # if there is no error the respective fetch method is executed
         
         if self.not_at_end():
-            FetchPokemon._page += 1
             if not FetchPokemon._ERROR:
-                await self.fetch()
-  
+                FetchPokemon._page += 1
+                return await self.fetch()
+                
     def back_page(self):
         """go back a page """
         if FetchPokemon._page != 1:
             FetchPokemon._page -= 1
 
 
-    def fetch(self) -> list:
+    async def fetch(self) -> list:
 
         """ fetch pokemon info using a the correct fetching method """
-
         # similar to the bridge pattern where the fetch is abstarcted to different types of fetch methods
         # the implementation of the FetchMethod interface can be changed without affecting the Fetcher hierarchy.
-        return self.local_method.fetch() if not self.designate_fetch_method() else self.async_method.fetch()
+        return self.local_method.fetch() if not self.designate_fetch_method() else await self.async_method.fetch()
             
+    def fetch_local(self) -> list:
+        """ fetch pokemon locally explicitly"""
+        return self.local_method.fetch()
+    
     def not_at_end(self) -> bool:
         """ function determines if the page is less than the max page"""
         return FetchPokemon._page < FetchPokemon.__max_page
@@ -152,6 +152,8 @@ class FetchPokemon(Fetcher):
     def designate_fetch_method(self) -> bool:
         """ function used to decide which fetch method should be executed"""
         return len(FetchPokemon._data[FetchPokemon._page]) == 0 
+    
+  
 
 
 class FetchLocal(FetchMethod):
@@ -161,10 +163,9 @@ class FetchLocal(FetchMethod):
     def __init__(self, fetcher: Fetcher):
         super().__init__(fetcher)
 
-    def fetch(self):    
-        return self.fetcher._data[self.fetcher._page]
+    def fetch(self):   
+        return self.fetcher._data[self.fetcher._page]   
     
-        
 class FetchAysnc(FetchMethod):
     
     """ fetch local handles the responsibility of fetching pokemon asynchronously
@@ -178,6 +179,7 @@ class FetchAysnc(FetchMethod):
     async def __get_pokemon(self, url, page=False) -> dict:
         # Fetch Page of pokemon e.g. url = "https://pokeapi.co/api/v2/pokemon/?offset=0&limit=20" => {"results": [pokemon1, pokemon2, ...]}
 
+
         request_handler = JSRequestHandler(return_type='text') if Config.IS_WEB else PythonRequestHandler()
         data = await request_handler.get(url)
 
@@ -187,8 +189,8 @@ class FetchAysnc(FetchMethod):
 
         if page: 
             return data['results']
+        
         else:
-
             img_front_url, img_back_url = data['sprites']['front_default'], data['sprites']['back_default']
             
             # if pokemon don't have an image from the back we dont consider them
@@ -208,13 +210,8 @@ class FetchAysnc(FetchMethod):
                     img = Image.open(imf_io)
                     img_front = r'./assets/images/{}-front.png'.format(data['name'])
                     img.save(img_front, 'PNG')
-                    # else:
-                    #     img_front = img_front_bytes
-                    # img_front = await img_front_bytes.read()
-
-                    # async with session.get(img_back_url) as img_back_bytes:
+                   
                     img_back_bytes = await brh.get(img_back_url)
-                    # if type(img_back_bytes) == str:
                     imb_64 = base64.b64decode(img_back_bytes.split(',')[1])
                     imb_io = io.BytesIO(imb_64)
                     img = Image.open(imb_io)
@@ -226,8 +223,9 @@ class FetchAysnc(FetchMethod):
                     # should be python request handler
                     img_front = await request_handler.get(img_front_url, handle='blob')
                     img_back = await request_handler.get(img_back_url, handle='blob')
- 
 
+                self.increment_progress(75//self.fetcher._LIMIT)
+                
                 # return all the relevant data for this game, i.e. pokemon name, valid moves, front and back sprite
                 return {
                         "name":data['name'].split('-')[0], 
@@ -240,43 +238,64 @@ class FetchAysnc(FetchMethod):
 
         """ this fucntion gets the data on each 'page'; 
         each page has size of the limit designated by it's fetcher handler"""
-
         # create tasks for fetching data from each URL and append them to the tasks list
         # using ensure future to schedule co routines
         tasks = [asyncio.ensure_future(self.__get_pokemon(link['url'])) for link in links]
 
         #  wait for the completion of all tasks concurrently and get the results                
         fetched_pokemon = await asyncio.gather(*tasks)
-
+        
             # iterate over the fetched pokemon and add them to the _pokemon dictionary
-        for  pokemon in fetched_pokemon:
+        for ind, pokemon in enumerate(fetched_pokemon):
             if pokemon is not None:
                 self.fetcher._data[self.fetcher._page].append(pokemon)
+                # self.fetcher._data[self.fetcher._page][ind] = pokemon
         
-        self.fetcher.IS_FETCHING = False
+        if self.fetcher.counter < 1:
+            self.fetcher.PROGRESS = 95
+            await asyncio.sleep(0.5)
+            self.fetcher.PROGRESS = 100
+            self.fetcher.increment_counter() # increment the counter by 1 to longer run this block of code
+            self.fetcher.IS_FETCHING = False
+        
         return self.fetcher._data[self.fetcher._page]
+    
                     
     async def __get_page_data(self) -> dict:
         
         """ gets the data for a page (not on the page) this is a request to the pokepai to """
-
             # see get_pokemon_page_data for explanation
         url = f"https://pokeapi.co/api/v2/pokemon/?offset={(self.fetcher._page-1) * self.fetcher._LIMIT}&limit={self.fetcher._LIMIT}"
 
         page = await self.__get_pokemon(url, page=True)
+        self.increment_progress(25)
         
         return page
+    
+    def increment_progress(self, amt: int):
+        """ increment the progress bar by 1"""
+        if self.fetcher._counter <= 1:
+            FetchPokemon.PROGRESS += amt
         
     async def fetch(self):
-        print('fetching... before')
         # fetch the respective links on a page
-        links = await self.__get_page_data()
-        self.fetcher.counter = 1 # increments the counter 
-        res = await self.__get_pokemon_page_data(links)
-        print('fetching... after')
 
-        return res
+        try: 
+            self.fetcher.IS_FETCHING = True
+            links = await self.__get_page_data()
+            if self.fetcher._counter == 0:
+                asyncio.create_task(self.__get_pokemon_page_data(links))
+            else:
+                self.fetcher.increment_counter()
+                res = await self.__get_pokemon_page_data(links)
+                self.fetcher.IS_FETCHING = False
+                return res
+
+        except: 
+            self.fetcher._ERROR = True
+            return []
         
+            
 
 class FetchControls(Fetcher):
     """ controls fetcher based on state of the game"""

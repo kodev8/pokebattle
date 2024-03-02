@@ -1,6 +1,5 @@
 from gameplay.levels import LevelFactory, LevelStore
 
-
 class GameState:
     """Singleton Class that manages the stages and state of the overall game"""
 
@@ -19,7 +18,7 @@ class GameState:
         self._running = True
 
         # the current state of the game.
-        self.current_state = 'choose'
+        self.current_state = 'welcome'
 
         # used to toggle a screen where applicable (for example , control menu)
         self.previous_state = None

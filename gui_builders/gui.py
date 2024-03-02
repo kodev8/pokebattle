@@ -42,6 +42,9 @@ class Button(Element):
         """ define a new function to test equlaity of buttons
         It is used to identify one button is the same as onther"""
         return self.id == other.id
+    
+    def __hash__(self):
+        return hash(self.id)
 
 class GUIBuilder:
 
@@ -293,7 +296,7 @@ class GUIDirector:
         else:
             text = 'Sorry! You Lost this round'
             image = r'./assets/images/gameover.png'
-            bg = (109, 9, 238)
+            bg = Config.PURPLE
 
         style = {
             'width': Config.SCREEN_WIDTH - 100,

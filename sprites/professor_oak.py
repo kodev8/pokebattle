@@ -164,7 +164,7 @@ class OakWin(OakState):
     def __init__(self, oak):
         super().__init__(oak)
         self.setup_image(name='oak-win', offset_x=-200)
-        self.speech=["Well done !!", 'You Successfully defeated all the challengers!', 
+        self.speech=["Well done !!!", 'You Successfully defeated all the challengers!', 
                      'Press T to continue exploring or...', 
                      'Press N to start a new game!', 'If not, see you again Champ!']
 

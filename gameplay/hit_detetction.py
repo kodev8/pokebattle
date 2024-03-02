@@ -98,7 +98,7 @@ class HitDetection(Hit):
         
         # keep updating the sprite speed 
         for direc in sprite1.current_state.animations:
-            sprite1.current_state.animations[direc][0] = sprite1.current_state.speed
+            sprite1.current_state.animations[direc].speed = sprite1.current_state.speed
 
 
         # first check if the sprite collides with the gorup using the rect method since mask collisiobs are expensive
@@ -118,7 +118,7 @@ class HitDetection(Hit):
                 if self.__detectors[sprite1.current_state.direction](sprite1, collisions):
 
                     # set the speed to 0 so it cannot move
-                    sprite1.current_state.animations[sprite1.current_state.direction][0] = 0
+                    sprite1.current_state.animations[sprite1.current_state.direction].speed = 0
 
                     # play the collide noise only once until a new collision is detected
                     if self.__play_sound == 0:

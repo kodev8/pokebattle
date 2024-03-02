@@ -6,6 +6,7 @@ import random
 import io     
 from config.config import Config 
 from abc import ABC, abstractmethod
+from PIL import Image
 
 class AbstractPokemon(ABC):
     """Abstract base class for pokemon interface"""
@@ -35,12 +36,12 @@ class Pokemon(GameSprite, ABC):
 
         self.mediator = mediator # mediator to handle battles
         self.name = poke_info['name'] # name fetched from api
-        self.moves = poke_info['moves'] # fetched moves from api
-    
-        self.float_in_pos = 200 # default position to float in when challenging
-        self.hp = 200 # default hp when starting a bettle
+        self.moves = poke_info['moves'] # fetched moves from a pi
 
-        self.off_screen_pos = -100, Config.SCREEN_HEIGHT-30 # default position of the screen to float in from or float out to if defeated
+        self.hp = Config.POKEMON_HP # default hp when starting a bettle
+
+        self.float_in_pos = None# default position to float in when challenging a pokemon # make sure to set this in the child class
+        self.off_screen_pos = None# default position of the screen to float in from or float out to if defeated # make sure to set this in the child class
         self.gui_elements = [] # this will be all the elements to rendered for a poekmon when battling
 
         # pokemon state flags
@@ -50,6 +51,28 @@ class Pokemon(GameSprite, ABC):
             'reduce_health':-1, # if the pokemon has been attacked, this will be > 0 and the hp with be reduced accordingly
             'attack':False # if the pokemon is attacking
         }
+
+    def process_image(self, image, size):
+
+        scale_size = Config.scaler(size, size) 
+        scale_size = int(scale_size[0]), int(scale_size[1])
+        self.image = pygame.transform.scale(image, scale_size) # scale square image with pygame 
+        image_string = pygame.image.tostring(self.image, 'RGBA', False) 
+        pil_image = Image.frombytes('RGBA', scale_size, image_string)
+        bbox = pil_image.getbbox() 
+        self.image = pil_image.crop(bbox) # crop the image to remove empty space to allow for placing differently sized pokemon in the correct battle position
+        self.image = pygame.image.fromstring(self.image.tobytes(), self.image.size, self.image.mode).convert_alpha()
+
+
+        # self.image = pygame.image.load(io.BytesIO(im)) if type(im) == bytes else pygame.image.load(im)
+        # image = image.convert("RGBA")
+        # image = image.resize(Config.scaler(size, size), resample=Image.LANCZOS)
+        # bbox = image.getbbox()
+        # self.image = image.crop(bbox)
+        # self.image = pygame.image.fromstring(self.image.tobytes(), self.image.size, self.image.mode).convert_alpha()
+        # front images are a bit larger so we scale them down as opposed to the back images
+        # self.image = pygame.transform.scale(self.image, Config.scaler(300, 300))
+        
 
     def float_in_out(self, direction, speed, out):
 
@@ -112,17 +135,18 @@ class TrainerPokemon(Pokemon, AbstractPokemon):
 
         super().__init__(poke_info, mediator)
 
-        # get the back image and trasnform it
-         # get the back image and trasnform it
-        if type(poke_info['back']) == bytes:
-            self.image = pygame.image.load(io.BytesIO(poke_info['back']))
-        else:
-            self.image = pygame.image.load(poke_info['back'])
-
-        self.image = pygame.transform.scale(self.image, (350 * Config.WIDTH_SCALE,350 * Config.HEIGHT_SCALE))
+        im = poke_info['back']
+        image = pygame.image.load(io.BytesIO(im)) if type(im) == bytes else pygame.image.load(im)
+        self.process_image(image, 350) # sets self.image
+        # self.image = pygame.transform.scale(self.image, Config.scaler(350, 350))
         # create a list of all moves and assign a randome power value by choosing for random moves
-        self.moves = [Attack(move['move']['name'] ,random.randint(40, 80)) for 
-                      move in random.sample(self.moves, 4)]
+        self.moves = [
+                Attack(move['move']['name'], random.randint(Config.TRAINER_MIN_DAMAGE, Config.TRAINER_MAX_DAMAGE)) 
+                for 
+                move in random.sample(self.moves, 4)
+                ]
+        self.off_screen_pos = -100, Config.SCREEN_HEIGHT-90 
+        self.float_in_pos = Config.SCREEN_WIDTH // 4
 
     def initialize_for_fight(self, bd):
         """ create the gui elements and set the states for all pokemon before a battle"""
@@ -136,7 +160,7 @@ class TrainerPokemon(Pokemon, AbstractPokemon):
         }
         self.rect = self.image.get_rect(midbottom=(self.off_screen_pos))
 
-        # define and place all elements on the scrren accordingling and 
+        # define and place all elements on the screen accordingling and 
         # add them to the gui elements to ensure they are displayed in the right order (z value)
         bottom_corner = Config.SCREEN_WIDTH/2, Config.SCREEN_HEIGHT *2/3
         
@@ -145,7 +169,7 @@ class TrainerPokemon(Pokemon, AbstractPokemon):
                         bottom_corner[1] - 10 - info_layer.surface.get_height())
 
         health_bar = bd.create_pokemon_health_bar(self.hp)
-        bar_outline_pos = (bottom_corner[0] +20 ,
+        bar_outline_pos = (bottom_corner[0] + 20 ,
                             bottom_corner[1] + 30 - info_layer.surface.get_height())
         
         bar_hp_pos = bar_outline_pos[0]+2, bar_outline_pos[1]+2
@@ -161,7 +185,7 @@ class TrainerPokemon(Pokemon, AbstractPokemon):
 
     def attack(self, mediator, control):
         """ send an attack to the relevant mediator"""
-        mediator.send_attack('trainer', self.moves[control-1])
+        mediator.send_attack('trainer', self.moves[control-1]) # control is the index of the move in the moves list
  
 class OtherPokemon(Pokemon, AbstractPokemon):
     """ class for challenger pokemon"""
@@ -170,25 +194,29 @@ class OtherPokemon(Pokemon, AbstractPokemon):
         super().__init__(poke_info, mediator)
 
         #  get the pokemon facing forward image
-        if type(poke_info['front']) == bytes:
-            self.image = pygame.image.load(io.BytesIO(poke_info['front']))
-        else:
-            self.image = pygame.image.load((poke_info['front']))
+        im = poke_info['front']
+        # image = Image.open(io.BytesIO(im)) if type(im) == bytes else Image.open(im)
+        image = pygame.image.load(io.BytesIO(im)) if type(im) == bytes else pygame.image.load(im)
+        self.process_image(image, 300)
+        
 
         # update it's new offscreen position since it will be coming in from the next direction
-        self.off_screen_pos = Config.SCREEN_WIDTH + 100, 300 * Config.HEIGHT_SCALE
-
-        # front images are a bit larger so we scale them down as opposed to the back images
-        self.image = pygame.transform.scale(self.image, (300 * Config.WIDTH_SCALE,300 * Config.HEIGHT_SCALE))
+        self.off_screen_pos = Config.SCREEN_WIDTH + 100, Config.CENTER[1] - (Config.scaler(0, 15)[-1]) # grab scaled height
+        # print(self.image.get_size())
 
         self.rect = self.image.get_rect(midbottom=(self.off_screen_pos))
 
         # generate random moves same as in Trainer Pokemon
-        self.moves = [Attack(move['move']['name'] ,random.randint(30, 60)) for 
-                      move in random.sample(self.moves, 4)]
+        self.moves = [
+                        Attack(move['move']['name'] ,
+                        random.randint(Config.CHAL_MIN_DAMAGE, Config.CHAL_MAX_DAMAGE)) 
+                        for 
+                        move in random.sample(self.moves, 4)
+                    ]
+                        
         
-        self.float_in_pos = Config.SCREEN_WIDTH-(200*Config.WIDTH_SCALE)
-        self.gui_elements=[]
+        self.float_in_pos = Config.SCREEN_WIDTH - Config.SCREEN_WIDTH//4 
+        self.gui_elements = []
 
     def initialize_for_fight(self, bd):
         """ create the gui elements for the challenger pokemon"""
@@ -204,6 +232,6 @@ class OtherPokemon(Pokemon, AbstractPokemon):
         self.gui_elements.append([health_bar[1], bar_hp_pos])
 
     def attack(self, mediator):
-        """ choose a randome move and send the attack to the mediator"""
+        """ choose a random move and send the attack to the mediator"""
         move = random.choice(self.moves)
         mediator.send_attack('challenger', move)

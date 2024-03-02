@@ -26,7 +26,7 @@ class WelcomeRenderer(LevelRenderer):
         super().__init__(backdrop_renderer, backdrop_file)
         
     def render_environment(self):
-        return self.backdrop.create_env(resize=(2.5 * Config.WIDTH_SCALE, 1.5 * Config.HEIGHT_SCALE)) #render backdrop image
+        return self.backdrop.create_env(resize=(Config.scaler(2.5, 1.5))) #render backdrop image
     
     @property
     def controls(self):

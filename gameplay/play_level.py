@@ -1,10 +1,10 @@
 import pygame
 from config.config import Config
 from gui_builders.gui import GUIBuilder, GUIDirector
-from sprites.challenger import  Challenger
+from sprites.challenger import  Challenger, SpriteSheet
 from sprites.trainer import Trainer
 from gameplay.hit_detetction import Hit
-from sprites.professor_oak import ProfessorOak, OakWin
+from sprites.professor_oak import ProfessorOak, OakWin, OakHello
 from gameplay.battle import BattleMediator
 from gui_builders.pickup import  PickupItem
 from gameplay.dataobservers import DataObservable
@@ -13,6 +13,7 @@ from abc import ABC, abstractmethod
 from config.fetcher import Fetcher
 from gameplay.timers import Timer
 from gameplay.environments import *
+import asyncio
 
 
 # DEF_OFFSETX = 150 # default offset on x axis of dislplaying gui elements
@@ -60,11 +61,17 @@ class WelcomeLevel(Level):
         if self.oak.current_state == 'intro_end':
 
             # once he is finished, the game is switched to the loading state
-            self.gamestate.change_state('loading')
+            # self.gamestate.change_state('loading')
+            self.gamestate.change_state('choose')
         
-        # end the game base don his state
+        # end the game basedo n his state
         elif self.oak.current_state == 'game_end':
-            self.gamestate._running = False
+            # if the game is in web mode, the game is switched to the welcome state to start again to not allow the game to close
+            if Config.IS_WEB:
+                self.oak.current_state = OakHello(self.oak)
+                self.gamestate.gameplayer.reset()
+            else:
+                self.gamestate._running = False
 
         else:
             # otherewise display him and speeach tile on the sceen
@@ -84,7 +91,7 @@ class ChooseLevel(Level):
         super().__init__(screen, gamestate, renderer)
         self.image, self.pos = self.renderer.render_environment()
         self.fetcher = fetcher # set up fetcher
-
+        
         # create observable and attach delf
         self.choose_level_data = data_observable
         self.choose_level_data.attach(self)
@@ -93,7 +100,8 @@ class ChooseLevel(Level):
         self.spacing = (Config.SCREEN_WIDTH - 
                         (Config.SCREEN_WIDTH/self.cols-20)*self.cols)/self.cols-self.cols  # spacing calculation for space between pokemon tiles
     
-
+        self.load_count = 0
+        self.loading_image = SpriteSheet(r'./assets/spritesheets/loading-spritesheet.png', r'./assets/spritesheets/sheet_json/loading-animate.json')
     def observe_update(self, field, data):
         """ receive updates from observable """
         self._fields[field] = data
@@ -108,80 +116,117 @@ class ChooseLevel(Level):
             self._fields = new_fields
 
     async def play_level(self):
-        print(self.fetcher.IS_FETCHING)
         
         # place backdrop on the screen at the given pos
         self.screen.blit(self.image, self.pos)
+        
         if not self.fetcher._ERROR: # check if the fetcher encountered an error
-            try:
-                # if the page has not yet be initialised , fetch the pokemon on the counter'th page
-                # i.e. if count is 0 then get the fetcher's first page
-                # each page has 16 pokemon as explained in fetcher
+            # if the page has not yet be initialised , fetch the pokemon on the counter'th page
+            # i.e. if count is 0 then get the fetcher's first page
+            # each page has 16 pokemon as explained in fetcher
+            if self.fetcher.PROGRESS < 100:
+                self.display_loading_bar()
 
-                if self.fetcher.counter == 0:
-                    result = await self.fetcher.fetch()
-                    if result == False: 
-                        # this exception is used avoid rendering the rest of the page before
-                        # the fetcher error check is checked again. This way we can exit the 
-                        # if statement early and render the error message
-                        raise Exception()
+            if self.fetcher.counter < 0:
+               # increments the counter to indicate first fetch
 
-                self._render_tiles_eff()
-                self._display_tiles_with_hover_and_click()
+                # we await the first call to block the execution of the rest of the code until the fetch is complete
+                asyncio.create_task(self.fetcher.fetch())
+                self.fetcher.increment_counter() 
+                # returns coroutine and schedules it to be run
+                
+                # if result == False: 
+                #     # this exception is used avoid rendering the rest of the page before
+                #     # the fetcher error check is checked again. This way we can exit the 
+                #     # if statement early and render the error message
+                #     raise Exception()
+            if self.fetcher.PROGRESS == 100:
+                self._create_current_tiles()
+                page = self._display_tiles_with_hover_and_click()
                 self._display_pokemon_count()
                 self._continue_to_exolore()
-                self._display_next_previous()
-                 
-            except Exception as e:
-                # TODO: add logging for errors
-                pass
-                
+                self._display_next_previous(page)
+                self.display_loading_spinner()
         else:
-            
             # create and display error message
             error_message = self.bd.create_error('Sorry :( Cannot establish a conenction:', 'Please Try again')
             error_message.display(self.screen, (Config.CENTER[0]-error_message.surface.get_width()//2, Config.CENTER[1]-error_message.surface.get_height()//2))
 
-    def _render_tiles_eff(self):
+    def _create_current_tiles(self):
+        
+        for ind, pokemon_data in enumerate(self.fetcher.fetch_local()):
+            tile = pokemon_data.get('tile')
+            if not tile:
+                pokemon_tile = self.bd.create_pokemon_tile(self.cols, self.spacing, pokemon_data['front'], pokemon_data['name'])
+                pos = (ind % self.cols * (pokemon_tile.width + self.spacing) + self.spacing,
+                ind // self.rows * (pokemon_tile.height + self.spacing) + self.spacing)
+                 # update the tiles bounding rect to palce the hover rect in the correct position 
+                pokemon_tile.update_rect(*pos)
+                pokemon_data['tile'] = pokemon_tile
+                # should append tile to the current tiles
+                # self.choose_level_data.set_field('current_tiles', pokemon_data)
 
-        # for every pokemon on the page,  the respective tile with a name and image is created 
-        for ind, pokemon_data in enumerate(self.fetcher._data[self.fetcher._page]):
-
+            # elif tile and pokemon_data not in self._fields['current_tiles']: 
+            #     print('already have a hile for:', pokemon_data['name'], len(self._fields['current_tiles']))
+                # self.choose_level_data.set_field('current_tiles', pokemon_data)
+                    
+                    
+                    # print('creating tile')
+                    # pokemon_data['tile'] = self.bd.create_pokemon_tile(self.cols, self.spacing, pokemon_data['front'], pokemon_data['name'])
+            # print(pokemon_data['name'],end=' ')
             # check the number of current tiles against the page limit
             # the number of tiles per page is always refreshed from 0 so it is safe to check it against the limit
             # this check ensures that the pokemon_tiles are not constantly recreated when displaying on the screen
-            if len(self._fields['current_tiles']) != self.fetcher._LIMIT:
-                pokemon_tile = self.bd.create_pokemon_tile(self.cols, self.spacing, pokemon_data['front'], pokemon_data['name'])
+            # print(len(self._fields['current_tiles']), len(self.fetcher._data[self.fetcher._page]))
+            
+            
+            # if len(self._fields['current_tiles']) = len(self.fetcher._data[self.fetcher._page]):
+            # if len(self._fields['current_tiles']) == 0:
+                # print(len(self._fields['current_tiles']))
+                # pokemon_tile = self.bd.create_pokemon_tile(self.cols, self.spacing, pokemon_data['front'], pokemon_data['name'])
                 
                 # create a list of tile, data pairs; the __eq__ definition of a button using id 
                 # allows us to use the id to check if the pokemon button is in the list
-                if pokemon_tile not in [tile[0] for tile in self._fields['current_tiles']]:
-                    
+                # if pokemon_data['name'] not in [tile[1]['name'] for tile in self._fields['current_tiles']]:
+                #     print('creating new tile', pokemon_data['name'])
                     # update the current tiles in the data observable data, this pushes notification to all other observers of the observable
-                    self.choose_level_data.set_field('current_tiles', (pokemon_tile, pokemon_data))
+                    # self.choose_level_data.set_field('current_tiles', (pokemon_tile, pokemon_data))
 
                 # calculate the position of the tile based on it's index in the list, this way we get a sort of wrapping effect
                 # using the modulus to determine the row and the floor to deterimine the column
-                pos = (ind % self.cols * (pokemon_tile.width + self.spacing) + self.spacing,
-                        ind // self.rows * (pokemon_tile.height + self.spacing) + self.spacing)
+                #     pos = (ind % self.cols * (pokemon_tile.width + self.spacing) + self.spacing,
+                #         ind // self.rows * (pokemon_tile.height + self.spacing) + self.spacing)
 
-                # updte the tiles bounding rect to palce the hover rect in the correct position 
-                pokemon_tile.update_rect(pos[0], pos[1])
+                # # updte the tiles bounding rect to palce the hover rect in the correct position 
+                #     pokemon_tile.update_rect(*pos)
+                #     pokemon_data['tile'] = pokemon_tile
+                # # should append tile to the current tiles
+                #     self.choose_level_data.set_field('current_tiles', pokemon_data)
 
+
+                    
+        # print()
     def _display_tiles_with_hover_and_click(self):
+        
+        # use the fetcher page to either display the current page or the previous page when the current page is empty (while fetching)
+        # this allows to no longer await all the results of the fetch, show loader and then display the current page when it's
+        page = self.fetcher.page - 1 if len(self.fetcher.fetch_local()) == 0 and self.fetcher.page > 1 else self.fetcher.page
+        
+        for pk_data  in (self.fetcher._data[page]):
+            if pk_data.get('tile'):
+                pk_data['tile'].display(self.screen, pk_data['tile'].rect)
 
-        for pk_tile, _  in (self._fields['current_tiles']):
-            pk_tile.display(self.screen, pk_tile.rect)
+                # activate onclick for pokeomn selceted
+                if pk_data['tile'] in self._fields['chosen']:
+                    pk_data['tile'].onclick(self.screen)
 
-            # activate onclick for pokeomn selceted
-            if pk_tile in [data[0] for data in self._fields['chosen']]:
-                pk_tile.onclick(self.screen)
+                # if the pokemon has been hovered on, the data stores hover is updated 
+                # and the on hover function is executed
+                if self._fields['hover']:
+                    self._fields['hover'][0].onhover(self.screen, Config.RED) 
 
-            # if the pokemon has been hovered on, the data stores hover is updated 
-            # and the on hover function is executed
-            if self._fields['hover']:
-                self._fields['hover'][0].onhover(self.screen, Config.RED)  
-
+        return page
+    
     def _display_pokemon_count(self):
         # create and dispaly a counter indicator to show how many pokemon have been selected
         pokemon_counter = self.bd.create_choose_count(f"{len(self._fields['chosen'])} / {Config.POKEMON_COUNT}")
@@ -192,19 +237,52 @@ class ChooseLevel(Level):
             self.start_explore = self.bd.create_continue_button("[ ENTER ] to Explore the Village Now!")
             self.start_explore.display(self.screen, (Config.CENTER[0]-150, Config.SCREEN_HEIGHT-50))
 
-    def _display_next_previous(self):
+    def _display_next_previous(self, page):
 
         # create next and previous buttons
-        fetcher_next = self.bd.create_fetcher_button(f" Next Page ({self.fetcher.page+1})")
-        fetcher_prev = self.bd.create_fetcher_button(f"Prev Page ({self.fetcher.page-1})")
+        fetcher_next = self.bd.create_fetcher_button(f" Next Page ({page+1})")
+        fetcher_prev = self.bd.create_fetcher_button(f"Prev Page ({page-1})")
 
         if self.fetcher.not_at_end():
             w = fetcher_next.surface.get_width()
             fetcher_next.display(self.screen, (Config.SCREEN_WIDTH - w, 0))
 
         # render the previous page as long as the current page number greater than 1  
-        if self.fetcher.not_at_start():
+        if self.fetcher.not_at_start() and page > 1:
             fetcher_prev.display(self.screen, (0, 0))
+
+    def display_loading_spinner(self):
+        
+        bg_filter = pygame.Surface((Config.SCREEN_WIDTH, Config.SCREEN_HEIGHT))
+        bg_filter.set_alpha(200)
+        bg_filter.fill(Config.WHITE)
+
+        if self.fetcher.IS_FETCHING:
+            spinner_image = self.loading_image.parse_sheet(f'loading-{self.load_count // 2 + 1}', format=(100, 100))
+            bg_filter.blit(spinner_image, (Config.CENTER[0] - spinner_image.get_width()//2, Config.CENTER[1] - spinner_image.get_height()//2))
+            self.screen.blit(bg_filter, (0, 0))
+            self.load_count += 1
+            if self.load_count ==  32:
+                self.load_count = 0
+    
+    def display_loading_bar(self):
+
+        bar_height = 30
+        bar_width = int(Config.SCREEN_WIDTH * 3/4)
+        header = self.bd.create_control_header('Loading Pokemon Data...')
+
+        x = (Config.SCREEN_WIDTH - bar_width) // 2
+        y = Config.CENTER[1] - bar_height // 2
+
+
+        outline_rect = pygame.Rect(x - 10, y -10 , bar_width + 20, bar_height + 20)
+        fill_rect = pygame.Rect(x, y, bar_width * self.fetcher.PROGRESS//100, bar_height)
+
+        pygame.draw.rect(self.screen, Config.GREEN, fill_rect)
+        pygame.draw.rect(self.screen, Config.BLACK, outline_rect, 2)
+        header.display(self.screen, (Config.CENTER[0] - header.surface.get_width()//2, Config.CENTER[1] - 100))
+
+        
         
 class HomeTownLevel(Level):
     
@@ -355,19 +433,19 @@ class HomeTownLevel(Level):
             # use the item index to display it in the right position
             for index, item in enumerate(self.trainer.bag.items, 1):
                 w, h = item.image.get_size()
-                w, h = w * Config.WIDTH_SCALE, h * Config.HEIGHT_SCALE
+                w, h = Config.scaler(w, h)
                 image = pygame.transform.scale(item.image, (w, h))
                 self.screen.blit(image, (45, index*h + h))
  
-class LoadingLevel(Level):
-    """ Intermediate stage of the game, to display when fetcher is loading data"""
-    def __init__(self, screen, gamestate, renderer: GameMapBackDrop):
-        super().__init__(screen, gamestate, renderer)
-        self.image, self.pos =  self.renderer.render_environment()
-
-    async def play_level(self):
-        self.screen.blit(self.image, self.pos)
-        self.gamestate.change_state('choose')
+# class LoadingLevel(Level):
+#     """ Intermediate stage of the game, to display when fetcher is loading data"""
+#     def __init__(self, screen, gamestate, renderer: GameMapBackDrop, fetcher: Fetcher):
+#         super().__init__(screen, gamestate, renderer)
+#         self.image, self.pos =  self.renderer.render_environment()
+#         self.fetcher = fetcher
+#     async def play_level(self):
+#         self.screen.blit(self.image, self.pos)
+#         self.gamestate.change_state('choose')
 
 class ControlsLevel(Level):
     """ display the controls page"""
@@ -398,7 +476,7 @@ class ControlsLevel(Level):
 
         for index, ctrl in enumerate(self.ctrls, 1):
             ctrl.display(self.screen, (25, (index  * ctrl.surface.get_height() + 20 + (index * 20))))
-        self.header.display(self.screen, (Config.CENTER[0] - (Config.SCREEN_WIDTH//2)//2, 20))
+        self.header.display(self.screen, (Config.CENTER[0] - self.header.surface.get_width()//2, 20))
         self._display_next_previous()
 
     def _display_next_previous(self):

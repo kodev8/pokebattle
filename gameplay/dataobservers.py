@@ -32,7 +32,9 @@ class DataObservable(ABC):
 
 class ConcreteLevelData(DataObservable):
 
-    """ parent class for most Data Observables"""
+    """ parent class for most Data Observables
+        update allows for arrays and dictionaries to be updated so check type for the field
+    """
     
     def attach(self, observer):
         """ attach unique observers to list of observers/subscribers"""
@@ -72,17 +74,32 @@ class ConcreteLevelData(DataObservable):
         once the field is updated, all observers receive the update in their _fields property"""
         if unique:
             self.reset_field(field)
-        
-        self._fields[field].append(data)
+
+        if type(self._fields[field]) == list:
+            self._fields[field].append(data)
+        elif type(self._fields[field]) == dict:
+            if type(data) != dict:
+                raise ValueError("data must be a dictionary because the field is a dictionary")
+            self._fields[field].update(data)
+        else: 
+            raise ValueError("field must be a list or dictionary")
+        # self._fields[field].append(data)
         self.notify(field)
-    
+        
     def unset_field(self, field, data):
         """ remove a value from a given a field"""
-        self._fields[field].remove(data)
+
+        if type(self._fields[field]) == list:
+            self._fields[field].remove(data)
+        elif type(self._fields[field]) == dict:
+            self._fields[field].pop(data)
+        else:
+            raise ValueError("field must be a list or dictionary")
+        
         self.notify(field)
 
     def reset_field(self, field):
-        """ set the field property back to an empty list"""
+        """ set the field property back to an empty data structure"""
         self._fields[field] = []
         self.notify(field)
 
@@ -90,9 +107,9 @@ class ChooseLevelData(ConcreteLevelData):
     """ stores and updates data about the choose level"""
 
     _fields = {
-        "chosen":[],
+        "chosen":{},
         "hover":[],
-        "current_tiles":[]
+        # "current_tiles":[]
     }
 
     _observers = []

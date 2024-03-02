@@ -1,39 +1,36 @@
-# Top level imports for pygbag version
 import os
 os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
 import pygame
 import warnings
-# import aiohttp
-import asyncio
-import math
-# from aiohttp.client_exceptions import ClientConnectorError
-from abc import ABC, abstractmethod
-import random
-import json 
-import math
-from pytmx.util_pygame import load_pygame
-import io
-import sys
-import platform
-import json
-import warnings
-from urllib.parse import urlencode
-import base64
-from PIL import Image
-import platform
 warnings.filterwarnings("ignore") 
-
+import warnings
+import asyncio
 
 from config.config import Config
 if not Config.IS_WEB:
     os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = "hide"
-import pygame
-
 from config.gamestate import GameState, GamePlayer
 from gameplay.levels import LevelStore , HandlerCreator
 from gui_builders.gui import GUIBuilder, GUIDirector
-import warnings
-import asyncio
+
+
+# Top level imports for pygbag version
+import aiohttp
+import math
+from abc import ABC, abstractmethod
+import random
+import json 
+from pytmx.util_pygame import load_pygame
+import io
+import sys
+from urllib.parse import urlencode
+import base64
+from PIL import Image
+import platform
+
+
+
+
 
 
 # warnings.filterwarnings("ignore") #suppress libpng warning
@@ -78,7 +75,6 @@ class MainGameLoop:
 
     async def play(cls):
         while cls._GAME_STATE._running:
-       
             for event in pygame.event.get():
                 
                 # check if the the x is in top corner is clicked or if if the escape button is pressed only if on pc
@@ -91,7 +87,7 @@ class MainGameLoop:
                 # check each handler for every game state. using the chain off res
                 # only the corresponding handler will handle key events for the given the state
                 for state in cls._GAME_STATE._states:
-                   await  cls.event_handler.handle(state, event)
+                   cls.event_handler.handle(state, event)
             
             if not cls._AUDIO_ERROR:
                 # run the actual gameplay for the corresponding level

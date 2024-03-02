@@ -13,7 +13,7 @@ class GameSprite(pygame.sprite.Sprite):
         
         image_width, image_height = image.get_size()
         
-        self.image = pygame.transform.scale(self.image, (image_width * Config.WIDTH_SCALE,image_height * Config.HEIGHT_SCALE))
+        self.image = pygame.transform.scale(self.image, Config.scaler(image_width, image_height))
 
 class ExploreSprite(GameSprite):
 

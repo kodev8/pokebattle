@@ -9,6 +9,8 @@ For this project, I decided to replicate Pokemon from the GameBoy era such as Po
 The game starts with a quick intro by Professor Oak. Once the intro is completed, the user can pick a number of Pokemon from the majority of the 1281 Pokemon available on the PokeApi. After selecting the Pokemon, the user can explore the hometown level. Here, there are some challengers to battle, as well as some items to pick up to help with the journey. The current items obtained are held in the trainer’s bag. If the user loses a battle, the game is over and the user can quit the game or restart by choosing new Pokemon. If all challengers have been defeated, the user is notified by Professor Oak that they have won the game and can restart, continue exploring, or end the game.
 If needed, there is a controls menu for each stage of the game.
 
+**Here is a working demo**: https://kodev8.itch.io/pokebattle
+
 Here is the project structure:
 
 
@@ -210,7 +212,7 @@ The state pattern is used in the `**Trainer**` and `**Professor Oak**` classes t
 - Choosing Design Patterns -  Having the liberty of selecting any design pattern was a bit difficult to determine which patterns should be used 
 - Detecting collisions - This is still not perfect because of the various shapes and sizes of tiles.
 - Handling turns during a battle - Using the mediator helped rectify issues with handling turns between the trainer and challenger. I attempted to use the observer pattern and state patterns but it added complexity and was harder to follow for me. Pokemon states and batter states can be implemented using state pattern, but since these are normally booleans or counters, I preferred to keep the simpler implementation of using dictionaries to maintain their states
-- Since this is a smaller project, I understand that some abstractions and better patterns should be made for future implementations.
+- Since this is a smaller project, I understand that some abstractions and better patterns should be made for future implementations and that patterns are forced to meet the assignment requirements.
 - Bugs: 
     - Some objects that the trainer should collide with do not work and the trainer can ‘phase’ through them. A higher framerate sometimes fixes this but it is still buggy sometimes
     - Performing too many asynchronous fetches can cause the game to crash. Since the requests to the API are queued, a backlog of requests can cause the game to freeze first and then maybe crash
@@ -225,5 +227,5 @@ The state pattern is used in the `**Trainer**` and `**Professor Oak**` classes t
 - Design Pattern Info: https://refactoring.guru/
 - Design Pattern Playlist: https://www.youtube.com/watch?v=_BpmfnqjgzQ&t=9s
 - Tips on Dependency Injection, Inversion, and Decoupling: https://www.youtube.com/watch?v=2ejbLVkCndI&t=1s, https://www.youtube.com/watch?v=eiDyK_ofPPM, 
-- async python HTTP requests: https://www.twilio.com/blog/asynchronous-http-requests-in-python-with-aiohttp
+- async python HTTP requests: https://www.twilio.com/blog/asynchronous-http-requests-in-python-with-aiohttp, https://realpython.com/async-io-python/
 

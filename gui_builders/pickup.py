@@ -21,7 +21,7 @@ class ItemBuilder:
         self.name = None
         self.image_path = None
         self.pos = None
-        self.scale = (32 * Config.WIDTH_SCALE, 32 * Config.HEIGHT_SCALE)
+        self.scale = Config.scaler(32, 32)
 
     def with_name(self, name):
         self.name = name
