@@ -91,7 +91,7 @@ class HometownLevelCreator(AbstractCreator):
         renderer = HomeTownRenderer(
             camera=ExploreCamera(),
             backdrop_renderer=GameMapTSX,
-            backdrop_file=r'assets/hometown/hometown.tmx',
+            backdrop_file=r'./assets/hometown/hometown.tmx',
             baselayer=Layer(),
             ysortlayer=YSortLayer(),
             item_creator=ItemDirector(ItemBuilder()))
@@ -110,7 +110,7 @@ class ChooseLevelCreator(AbstractCreator):
     def create(screen, gamestate):
         renderer = ChooseRenderer(
             backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'assets/images/stadium.png'
+            backdrop_file=r'./assets/images/stadium.png'
                     )
 
         return ChooseLevel(
@@ -124,7 +124,7 @@ class WelcomeLevelCreator(AbstractCreator):
     @staticmethod
     def create(screen, gamestate):
         renderer = WelcomeRenderer(backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'assets/images/oak-lab.jpeg'
+            backdrop_file=r'./assets/images/oak-lab.jpeg'
         )
 
         return WelcomeLevel(screen, gamestate, renderer)
@@ -134,7 +134,7 @@ class BattleLevelCreator(AbstractCreator):
     def create(screen, gamestate):
         renderer = BattleRenderer(
             backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'assets/images/battle.png',
+            backdrop_file=r'./assets/images/battle.png',
             lose_state=OakLose)
 
         return BattleLevel(screen, gamestate, renderer, trainer_mediator=LevelStore.trainer_mediator)
@@ -144,7 +144,7 @@ class LoadingLevelCreator(AbstractCreator):
     def create(screen, gamestate):
         renderer = LoadingRenderer(
             backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'assets/images/loading.jpg'
+            backdrop_file=r'./assets/images/loading.jpg'
         )
 
         return LoadingLevel(screen, gamestate, renderer)
@@ -154,7 +154,7 @@ class ControlsLevelCreator(AbstractCreator):
     def create(screen, gamestate):
         renderer = ControlRenderer(
             backdrop_renderer=GameMapBackDrop,
-            backdrop_file=r'assets/images/controlbg.jpeg'
+            backdrop_file=r'./assets/images/controlbg.jpeg'
                     )
 
         return ControlsLevel(screen, gamestate, renderer, fetcher=LevelStore.control_fetcher)

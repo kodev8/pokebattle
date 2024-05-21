@@ -1,5 +1,6 @@
 import pygame
 from abc import ABC, abstractmethod
+from config.config import Config
 
 class Hit(ABC):
     """ Abstract base class for a hit detection class
@@ -121,6 +122,6 @@ class HitDetection(Hit):
 
                     # play the collide noise only once until a new collision is detected
                     if self.__play_sound == 0:
-                        pygame.mixer.Sound(r'assets/sounds/collide.ogg').play()
+                        pygame.mixer.Sound(r'./assets/sounds/collide.ogg').play()
 
                         self.__play_sound += 1

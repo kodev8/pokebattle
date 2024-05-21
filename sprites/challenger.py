@@ -8,7 +8,6 @@ from gameplay.battle import Lineup
 from config.fetcher import FetchPokemon
 import random
 from typing import Dict
-
                                  
 class Challenger(ExploreSprite):
     """ Challeger sprites are sprites that can potentially have battle with the player"""
@@ -20,16 +19,16 @@ class Challenger(ExploreSprite):
         self.sheet = SpriteSheet(image_file=r"assets/spritesheets/challenger-spritesheet.png", 
                         json_file=r"assets/spritesheets/sheet_json/challenger-spritesheet.json")
         self.direction = direction
-        self.image = self.sheet.parse_sheet(f"challenger-{self.direction}", scalesprite=True)
+        self.image = self.sheet.parse_sheet(f"challenger-{self.direction}")
         self.rect = self.image.get_rect(center=pos)
         self.image.set_colorkey(Config.BLACK)
 
-        self.__exclamation = pygame.image.load(r'assets/images/exclaim2.png').convert_alpha()
+        self.__exclamation = pygame.image.load(r'./assets/images/exclaim2.png').convert_alpha()
         
         # resize the exclamation and get the rect to display the excalmation
         wr = 28/pos[0]
         hr =28/pos[1] 
-        self.__exclamation = pygame.transform.scale(self.__exclamation, (wr * self.rect.midtop[0], hr*self.rect.midtop[1]))
+        self.__exclamation = pygame.transform.scale(self.__exclamation, (wr * self.rect.midtop[0] * Config.WIDTH_SCALE, hr*self.rect.midtop[1] * Config.HEIGHT_SCALE))
         self._rect = self.__exclamation.get_rect(center=self.rect.midtop)
 
         # flag if the challenger is challenging the trainer

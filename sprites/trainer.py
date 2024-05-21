@@ -16,8 +16,8 @@ class Trainer(ExploreSprite):
     def __init__(self):
         super().__init__()
 
-        self.sheet = SpriteSheet(image_file="assets/spritesheets/poke-trainersheet.png",
-                                 json_file="assets/spritesheets/sheet_json/trainer-walk.json")
+        self.sheet = SpriteSheet(image_file="./assets/spritesheets/poke-trainersheet.png",
+                                 json_file="./assets/spritesheets/sheet_json/trainer-walk.json")
         
         #  initial direction of the trainer; used to update animations
         self.direction = 'down'
@@ -33,7 +33,9 @@ class Trainer(ExploreSprite):
 
         # initial image and position of the player
         self.image = self.current_state.animations[self.direction][1][0]
-        self.rect = self.image.get_rect(center=(200,500))
+        # self.rect = self.image.get_rect(center=ExploreSprite.get_placement(5.5, -5.5))
+        self.rect = self.image.get_rect(center=ExploreSprite.get_placement(-5.5, -3.5))
+# 
 
         # use the create mask from explore sprites which gives us access to its outline
         self.create_mask()
@@ -340,7 +342,9 @@ class TrainerBag(GameSprite):
 
     def __init__(self, bd):
         super().__init__()
-        self.bag_icon = bd.create_bag(r'assets/images/bag.png')
+        self.bag_icon = bd.create_bag(r'./assets/images/bag.png')
+        w, h = self.bag_icon.surface.get_size()
+        self.bag_icon.surface = pygame.transform.scale(self.bag_icon.surface, (w * Config.WIDTH_SCALE, h * Config.HEIGHT_SCALE))
         self.items = []# store for all items in the bag
         self.show = False # flag if the bag is displayed or not
                

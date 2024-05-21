@@ -14,8 +14,9 @@ from config.fetcher import Fetcher
 from gameplay.timers import Timer
 from gameplay.environments import *
 
-DEF_OFFSETX = 150 # default offset on x axis of dislplaying gui elements
-DEF_OFFSETY = 500 # default offset on y axis 
+
+# DEF_OFFSETX = 150 # default offset on x axis of dislplaying gui elements
+# DEF_OFFSETY = 500 # default offset on y axis 
 
 class Level(ABC):
 
@@ -48,7 +49,7 @@ class WelcomeLevel(Level):
         self.oak = ProfessorOak()
     
     
-    def play_level(self):
+    async def play_level(self):
         
         self.screen.fill(Config.WHITE) #fill background with white
 
@@ -106,7 +107,8 @@ class ChooseLevel(Level):
     def fields(self, new_fields):
             self._fields = new_fields
 
-    def play_level(self):
+    async def play_level(self):
+        print(self.fetcher.IS_FETCHING)
         
         # place backdrop on the screen at the given pos
         self.screen.blit(self.image, self.pos)
@@ -117,8 +119,7 @@ class ChooseLevel(Level):
                 # each page has 16 pokemon as explained in fetcher
 
                 if self.fetcher.counter == 0:
-                    
-                    result = self.fetcher.fetch()
+                    result = await self.fetcher.fetch()
                     if result == False: 
                         # this exception is used avoid rendering the rest of the page before
                         # the fetcher error check is checked again. This way we can exit the 
@@ -126,7 +127,7 @@ class ChooseLevel(Level):
                         raise Exception()
 
                 self._render_tiles_eff()
-                self._display_tiles_with_hover_andc_click()
+                self._display_tiles_with_hover_and_click()
                 self._display_pokemon_count()
                 self._continue_to_exolore()
                 self._display_next_previous()
@@ -139,11 +140,12 @@ class ChooseLevel(Level):
             
             # create and display error message
             error_message = self.bd.create_error('Sorry :( Cannot establish a conenction:', 'Please Try again')
-            error_message.display(self.screen, Config.ERROR_POS)
+            error_message.display(self.screen, (Config.CENTER[0]-error_message.surface.get_width()//2, Config.CENTER[1]-error_message.surface.get_height()//2))
 
     def _render_tiles_eff(self):
-        # for every pokemon on the page,  the respective tile with a name and image is created            
-        for ind, pokemon_data in enumerate(self.fetcher.fetch()):
+
+        # for every pokemon on the page,  the respective tile with a name and image is created 
+        for ind, pokemon_data in enumerate(self.fetcher._data[self.fetcher._page]):
 
             # check the number of current tiles against the page limit
             # the number of tiles per page is always refreshed from 0 so it is safe to check it against the limit
@@ -166,7 +168,7 @@ class ChooseLevel(Level):
                 # updte the tiles bounding rect to palce the hover rect in the correct position 
                 pokemon_tile.update_rect(pos[0], pos[1])
 
-    def _display_tiles_with_hover_andc_click(self):
+    def _display_tiles_with_hover_and_click(self):
 
         for pk_tile, _  in (self._fields['current_tiles']):
             pk_tile.display(self.screen, pk_tile.rect)
@@ -197,11 +199,12 @@ class ChooseLevel(Level):
         fetcher_prev = self.bd.create_fetcher_button(f"Prev Page ({self.fetcher.page-1})")
 
         if self.fetcher.not_at_end():
-            fetcher_next.display(self.screen, (Config.SCREEN_WIDTH-DEF_OFFSETX, Config.SCREEN_HEIGHT-DEF_OFFSETY))
+            w = fetcher_next.surface.get_width()
+            fetcher_next.display(self.screen, (Config.SCREEN_WIDTH - w, 0))
 
         # render the previous page as long as the current page number greater than 1  
         if self.fetcher.not_at_start():
-            fetcher_prev.display(self.screen, (0, Config.SCREEN_HEIGHT-DEF_OFFSETY))
+            fetcher_prev.display(self.screen, (0, 0))
         
 class HomeTownLevel(Level):
     
@@ -239,7 +242,7 @@ class HomeTownLevel(Level):
 
         # control music player 
         self.music = 0 # makes sure the music is only play once
-        self.sound =  pygame.mixer.Sound(r'assets/sounds/battle-start.ogg')
+        self.sound =  pygame.mixer.Sound(r'./assets/sounds/battle-start.ogg')
 
         # a timer to control the blink screen when a battle is initiated
         timer = Timer('delay_blink_screen', Config.FRAMERATE * 3)
@@ -249,7 +252,7 @@ class HomeTownLevel(Level):
         self.explore_level_data.set_field('timer', timer, unique=True)
 
 
-    def play_level(self):
+    async def play_level(self):
         
         # create a negative filter for the updated ysort layer
         self.negative_layer_filter = DecoratorNegativeFilter(self.ysortlayer)
@@ -351,7 +354,10 @@ class HomeTownLevel(Level):
             self.trainer.bag.bag_icon.display(self.screen, (10, 10))
             # use the item index to display it in the right position
             for index, item in enumerate(self.trainer.bag.items, 1):
-                self.screen.blit(item.image, (45, index*30+ 30))
+                w, h = item.image.get_size()
+                w, h = w * Config.WIDTH_SCALE, h * Config.HEIGHT_SCALE
+                image = pygame.transform.scale(item.image, (w, h))
+                self.screen.blit(image, (45, index*h + h))
  
 class LoadingLevel(Level):
     """ Intermediate stage of the game, to display when fetcher is loading data"""
@@ -359,7 +365,7 @@ class LoadingLevel(Level):
         super().__init__(screen, gamestate, renderer)
         self.image, self.pos =  self.renderer.render_environment()
 
-    def play_level(self):
+    async def play_level(self):
         self.screen.blit(self.image, self.pos)
         self.gamestate.change_state('choose')
 
@@ -376,7 +382,7 @@ class ControlsLevel(Level):
         self.header = None
         self.ctrls = []
 
-    def play_level(self):
+    async def play_level(self):
 
         fetched = self.fetcher.fetch()
        
@@ -402,11 +408,12 @@ class ControlsLevel(Level):
         fetcher_prev = self.bd.create_fetcher_button(f"Prev Page ({self.fetcher.page+1})")
 
         if self.fetcher.not_at_end():
-            fetcher_next.display(self.screen, (Config.SCREEN_WIDTH-DEF_OFFSETX, Config.SCREEN_HEIGHT-DEF_OFFSETY))
+            w = fetcher_next.surface.get_width()
+            fetcher_next.display(self.screen, (Config.SCREEN_WIDTH-w, 0))
 
         # render the previous page as long as the current page number greater than 1  
         if self.fetcher.not_at_start():
-            fetcher_prev.display(self.screen, (0, Config.SCREEN_HEIGHT-DEF_OFFSETY))
+            fetcher_prev.display(self.screen, (0, 0))
 
 class BattleLevel(Level):
 
@@ -433,9 +440,9 @@ class BattleLevel(Level):
             pokemon.initialize_for_fight(self.bd)
 
         self._music = 0 # ontrol music to play oce
-        self.sound = pygame.mixer.Sound(r'assets/sounds/battle-repeat.ogg')
+        self.sound = pygame.mixer.Sound(r'./assets/sounds/battle-repeat.ogg')
        
-    def play_level(self):
+    async def play_level(self):
 
         self.screen.blit(self.image, self.pos)
         

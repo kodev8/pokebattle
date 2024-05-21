@@ -33,10 +33,10 @@ class EventHandler(Handler):
         self.next_handler = None
         self.gamestate = gamestate
 
-    def handle(self, state, event):
+    async def handle(self, state, event):
         """ handle key and/or mouse events in the given state"""
         if self.next_handler:
-            return self.next_handler.handle(state, event)
+            return await self.next_handler.handle(state, event)
         return None
 
 
@@ -48,7 +48,7 @@ class WelcomeHandler(EventHandler):
         self.oak = ProfessorOak()
         self.gameplayer = gameplayer
 
-    def handle(self, state, event):
+    async def handle(self, state, event):
         if state == 'welcome' and self.gamestate.current_state == state:
             
             # if the space bar is pressed we update professor oak's state in the speech 
@@ -70,14 +70,9 @@ class WelcomeHandler(EventHandler):
 
                 elif isinstance(self.oak.current_state, OakWin) and event.key == pygame.K_t:
                     self.gamestate.change_state('explore_hometown')
-
-                
-
-
-
             return True
             
-        return super().handle(state, event)
+        return await super().handle(state, event)
 
 class ChooseHandler(EventHandler):
     """handles events when picking pokemon to start a  new  game"""
@@ -106,15 +101,25 @@ class ChooseHandler(EventHandler):
     def fields(self, new_fields):
             self._fields = new_fields
 
-    def handle_keys(self, event):
+    async def handle_keys(self, event):
         """ handle key events in the chooselevel"""
 
         if event.type == pygame.KEYDOWN:
-
+            print(self.fetcher.IS_FETCHING)
+            
             # swich pages forawrd and back and clear the refernce of current tiles each time
+        
+            # Switch pages forward and back and clear the reference of current tiles each time
             if event.key == pygame.K_SPACE or event.key == pygame.K_RIGHT:
-                self.fetcher.forward_page()
-                self.choose_level_data.reset_field('current_tiles')
+                if not self.fetcher.IS_FETCHING:
+                    self.fetcher.IS_FETCHING = True
+                    # print(self.fetcher.IS_FETCHING)
+                    # if not self.fetcher.IS_FETCHING:
+                    await self.fetcher.forward_page()
+                    self.choose_level_data.reset_field('current_tiles')
+                    self.fetcher.IS_FETCHING = False
+                else:
+                    print('I WAS BLOCKED')
     
             elif event.key == pygame.K_b or event.key == pygame.K_LEFT:
                 self.fetcher.back_page()
@@ -157,7 +162,7 @@ class ChooseHandler(EventHandler):
 
                             # if the number of chosen pokemon is less than 3 we add it to the list of chosen pokemon
                             if len(self._fields['chosen']) < Config.POKEMON_COUNT :
-                                pygame.mixer.Sound(r'assets/sounds/poke-click.ogg').play() # play click sound
+                                pygame.mixer.Sound(r'./assets/sounds/poke-click.ogg').play() # play click sound
                                 self.choose_level_data.set_field('chosen', tile)
 
 
@@ -172,14 +177,14 @@ class ChooseHandler(EventHandler):
         """ used to accept updates from the observable"""
         self._fields[field] = data
 
-    def handle(self, state, event): # handles keyboar and mouse movemnts
+    async def handle(self, state, event): # handles keyboar and mouse movemnts
         if state == 'choose' and self.gamestate.current_state == state:
 
-            self.handle_keys(event)
+            await self.handle_keys(event)
             self.handle_mouse(event)
 
             return True
-        return super().handle(state, event)
+        return await super().handle(state, event)
 
 
 class ExploreHandler(EventHandler):
@@ -216,7 +221,7 @@ class ExploreHandler(EventHandler):
     def fields(self, new_fields):
             self._fields = new_fields
 
-    def handle(self, state, event):
+    async def handle(self, state, event):
         if 'explore' in state and state in self.gamestate.current_state:
             
             # handle the animation when the trainer stops moving
@@ -240,7 +245,7 @@ class ExploreHandler(EventHandler):
                         if pygame.sprite.collide_rect(self.trainer_mediator.notify('get') , item):
 
                             # play the pick up sound and add the item to the bag
-                            pygame.mixer.Sound(r'assets/sounds/found-item.ogg').play()
+                            pygame.mixer.Sound(r'./assets/sounds/found-item.ogg').play()
                             self.trainer_mediator.notify_bag('add_item', item)
 
                 # toggle the bike when f is pressed
@@ -253,7 +258,8 @@ class ExploreHandler(EventHandler):
                     self.trainer_mediator.notify_bag('toggle_bag')
 
             return True
-        return super().handle(state, event)
+        
+        return await super().handle(state, event)
     
 
 class BattleHandler(EventHandler):
@@ -268,7 +274,7 @@ class BattleHandler(EventHandler):
 
         self.trainer_mediator = trainer_mediator
 
-    def handle(self, state, event):
+    async def handle(self, state, event):
         
         if state == 'battle' and self.gamestate.current_state == state:
 
@@ -280,7 +286,7 @@ class BattleHandler(EventHandler):
                     att_pokemon.attack(self.trainer_mediator.notify_pokemon('get_mediator'), self.allowed_events[event.key]) # attack using mediator
 
             return True
-        return super().handle(state, event)
+        return await super().handle(state, event)
     
 class ControlHandler(EventHandler):
     """ handle key events in the controls state"""
@@ -289,7 +295,7 @@ class ControlHandler(EventHandler):
         super().__init__(gamestate)
         self.fetcher = fetcher
 
-    def handle(self, state, event):
+    async def handle(self, state, event):
         # handles whether to display controls or not
         if state == 'controls':
             if event.type == pygame.KEYDOWN:
@@ -314,5 +320,5 @@ class ControlHandler(EventHandler):
                
 
             return True
-        return super().handle(state, event)
+        return await super().handle(state, event)
     

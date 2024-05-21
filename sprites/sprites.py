@@ -1,9 +1,19 @@
 import pygame
+from config.config import Config
 
 class GameSprite(pygame.sprite.Sprite):
     """ base class for a sprite which inherits from pygame sprite"""
     def __init__(self):
         super().__init__()
+
+    def scale(self, image):
+        """ scales the sprite to a specific size"""
+        # if not self.image:
+        #     raise Exception("No image to scale")
+        
+        image_width, image_height = image.get_size()
+        
+        self.image = pygame.transform.scale(self.image, (image_width * Config.WIDTH_SCALE,image_height * Config.HEIGHT_SCALE))
 
 class ExploreSprite(GameSprite):
 
@@ -50,6 +60,28 @@ class ExploreSprite(GameSprite):
             self.centery = (self.top + self.bottom )/2
             self.centerx = (self.left + self.right )/2
 
+    @staticmethod
+    def get_placement(num_tiles_offset_x, num_tiles_offset_y):
+        """ get placement of a sprite based on the number of tiles from the left and bottom
+            pass +ve to go from left to right and top to bottom
+        """
+        if (-Config.NUM_TILES_X + 1) > num_tiles_offset_x or num_tiles_offset_x > (Config.NUM_TILES_X - 1):
+            raise ValueError(f'num_tiles_offset_x must be between {-Config.NUM_TILES_X} and {Config.NUM_TILES_X}')
+        if num_tiles_offset_x < 0:
+            x = Config.MAP_W + (Config.TILE_X_SPACING * num_tiles_offset_x)
+        else:
+            x = Config.TILE_X_SPACING * num_tiles_offset_x
+        
+        if  (-Config.NUM_TILES_Y + 1) > num_tiles_offset_y  or num_tiles_offset_y > (Config.NUM_TILES_Y - 1):
+            raise ValueError(f'num_tiles_offset_y must be between {-Config.NUM_TILES_Y} and {Config.NUM_TILES_Y}')
+        
+        if num_tiles_offset_y < 0:
+            y = Config.MAP_H + (Config.TILE_Y_SPACING * num_tiles_offset_y)
+        else:
+            y = Config.TILE_Y_SPACING * num_tiles_offset_y
+        return x, y
+    
+
 class Tile(ExploreSprite):
     """class for tiles rendered from pytmx"""
     
@@ -57,6 +89,6 @@ class Tile(ExploreSprite):
         super().__init__()
         self.pos = pos # position to palce the tile
         self.image = image.convert_alpha()
-        
+        self.image = pygame.transform.scale(self.image, (Config.TILE_WIDTH, Config.TILE_HEIGHT))
         # use for collision detection and camera placement 
         self.rect = self.image.get_rect(topleft=pos)

@@ -12,8 +12,8 @@ class OakState(ABC):
         self.oak = oak
         
         # all states use the same spritesheet
-        self.sheet = SpriteSheet(image_file=r"assets\spritesheets\oak-spritesheet.png",
-                                 json_file=r"assets\spritesheets\sheet_json\oak-spritesheet.json")
+        self.sheet = SpriteSheet(image_file=r"./assets/spritesheets/oak-spritesheet.png",
+                                 json_file=r"./assets/spritesheets/sheet_json/oak-spritesheet.json")
 
         # initial speech psotion is set to 0
         self.speech_count = 0
@@ -38,7 +38,7 @@ class OakState(ABC):
                 self.tiles[index] = bd.oak_speech_tiles(speech)
 
     def setup_image(self, name, scale=(1, 1), offset_x=0, offset_y=0):
-        image = self.sheet.parse_sheet(name=name, scale=scale)
+        image = self.sheet.parse_sheet(name=name, scale=scale, format=None)
         self.oak.image = image
         self.x = (Config.SCREEN_WIDTH - image.get_width()) // 2 - offset_x
         self.y = (Config.SCREEN_HEIGHT- image.get_height()) // 2 - offset_y

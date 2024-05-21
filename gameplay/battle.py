@@ -157,9 +157,10 @@ class BattleMediator:
         win_check = True if winner == 'trainer' else False
         self.battle_states['trainer_win'] = win_check
         outcome = self.bd.create_battle_end(win=win_check) # conditional rendering of outcome message bsed on winner
-
+        width, height = outcome.surface.get_size()
         # display  the outcome message on the screen
-        outcome.display(screen, (Config.CENTER[0] - 300, Config.CENTER[1] - 50 ))
+        outcome.display(screen, ((Config.SCREEN_WIDTH - width)/2, Config.CENTER[1] - height/2 ))
+
         
         # use the timer to delay the message of the outcome the battle
         #  and keeps it on the screen for a given amount of time

@@ -67,7 +67,7 @@ class Timers(AbstractTimers):
 
 class Timer(AbstractTimer):
 
-    """Timre classed to delay code"""
+    """Timer class to delay code"""
 
     def __init__(self, timer_type, time):
         self.base_time = time

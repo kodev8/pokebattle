@@ -279,7 +279,7 @@ class GUIDirector:
             'bg': Config.RED
         }
 
-        return self.builder.style(**style).add_border().add_image(r'assets/images/error.png', offset=(290, 0), scale= (50, 50))\
+        return self.builder.style(**style).add_border().add_image(r'./assets/images/error.png', offset=(290, 0), scale= (50, 50))\
             .add_text(type, offset=(0, 10), font='solid', font_size='large', font_color=Config.WHITE)\
             .add_text(desc, offset=(0, -20), font='solid', font_color=Config.WHITE).build()
     
@@ -287,12 +287,12 @@ class GUIDirector:
 
         if win:
             text = 'Congratulations! You won this round'
-            image = r'assets/images/trophy.png'
+            image = r'./assets/images/trophy.png'
             bg = Config.GREEN
 
         else:
             text = 'Sorry! You Lost this round'
-            image = r'assets/images/gameover.png'
+            image = r'./assets/images/gameover.png'
             bg = (109, 9, 238)
 
         style = {

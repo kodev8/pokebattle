@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from config.config import Config
+from sprites.sprites import ExploreSprite
 from sprites.challenger import Challenger
 from gameplay.environments import GameEnvironment, Layer, YSortLayer
 from gui_builders.pickup import ItemDirector
@@ -25,7 +26,7 @@ class WelcomeRenderer(LevelRenderer):
         super().__init__(backdrop_renderer, backdrop_file)
         
     def render_environment(self):
-        return self.backdrop.create_env(resize=(2.5, 1.5)) #render backdrop image
+        return self.backdrop.create_env(resize=(2.5 * Config.WIDTH_SCALE, 1.5 * Config.HEIGHT_SCALE)) #render backdrop image
     
     @property
     def controls(self):
@@ -70,18 +71,6 @@ class ExploreLevelRenderer(LevelRenderer):
         self.ysortlayer = ysortlayer
         self.item_creator = item_creator
 
-    @property
-    def controls(self):
-        self.controls =  {
-            'W, A, S, D': 'Move', 
-            'X': 'Battle when challenged', 
-            'E': 'Pickup Item', 
-            'R': 'Toggle Bag',
-            'Shift + Move': 'Run  --running shoes',
-            'F': "Toggle Bike --bike ", 
-            'C': 'Toggle Controls',
-            '[ ESC ] ': 'End Game'
-        }
     
 class HomeTownRenderer(ExploreLevelRenderer):
     """ Render and set up Hometown level"""
@@ -132,12 +121,12 @@ class HomeTownRenderer(ExploreLevelRenderer):
     
     def _create_challengers(self):
 
+        # { facing_direction: (x, y) }
         challenger_data = {
-            'up':(300, Config.SCREEN_HEIGHT+100),
-            'down': (Config.SCREEN_WIDTH+150,150),
-            'left': (Config.SCREEN_WIDTH-20, Config.CENTER[1]+50),
-            'right':(100, 100)
-            
+            'up': ExploreSprite.get_placement(7, -1),
+            'down': ExploreSprite.get_placement(-3, 5), 
+            'left': ExploreSprite.get_placement(-9, 9), 
+            'right': ExploreSprite.get_placement(3, 3) 
         }
         return Challenger.inititialize_challengers(challenger_data)
 
@@ -151,14 +140,7 @@ class LoadingRenderer(LevelRenderer):
 
     def render_environment(self):
         return self.backdrop.create_env() #render backdrop image
-
-    @property
-    def controls(self):
-        return {
-            'C': 'Toggle Controls',
-            '[ ESC ] ': 'End Game'
-        }
-
+    
 class ControlRenderer(LevelRenderer):
     """ render controls backdrop"""
     def __init__(self, 
@@ -170,13 +152,6 @@ class ControlRenderer(LevelRenderer):
     def render_environment(self):
 
         return self.backdrop.create_env() #render backdrop image
-    
-    @property
-    def controls(self):
-        return {
-            'C': 'Toggle Controls',
-            '[ ESC ] ': 'End Game'
-        }
 
 
 class BattleRenderer(LevelRenderer):
@@ -196,15 +171,6 @@ class BattleRenderer(LevelRenderer):
     def render_environment(self):
         return self.backdrop.create_env() #render backdrop image
     
-    @property
-    def controls(self):
-        return {
-            ''
-            'C': 'Toggle Controls',
-            '[ ESC ] ': 'End Game'
-        }
-
-        
 
 
    

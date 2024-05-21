@@ -1,5 +1,6 @@
 import pygame
 import json 
+from config.config import Config
 
 class SpriteSheet:
     """Spritesheet allows sprites to be animated without needing to load new files
@@ -28,16 +29,16 @@ class SpriteSheet:
         # return the scaled image
         return  pygame.transform.scale(sprite, (w*scale[0], h*scale[1]))
     
-    def parse_sheet(self, name, scale=(1.5,1.5), scalesprite=False):
+    def parse_sheet(self, name, scale=Config.SPRITE_SCALE, format=(28, 32)):
         
         """ gets the sprites coordinates from the json file and returns
         the sprite on a new surface"""
         
         coords = self.animations['frames'][name]['frame']
 
-        if scalesprite:
-            wratio = 48/coords['w']
-            hratio = 48/coords['h']
-            scale = (wratio, hratio)
+        if format:
+            wratio = 28/coords['w']
+            hratio = 32/coords['h']
+            scale = (wratio * Config.SPRITE_SCALE[0], hratio * Config.SPRITE_SCALE[1])
             
         return self.get_sprite(coords['x'], coords['y'], coords['w'], coords['h'], scale)

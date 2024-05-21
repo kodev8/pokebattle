@@ -21,7 +21,7 @@ class ItemBuilder:
         self.name = None
         self.image_path = None
         self.pos = None
-        self.scale = (32, 32)
+        self.scale = (32 * Config.WIDTH_SCALE, 32 * Config.HEIGHT_SCALE)
 
     def with_name(self, name):
         self.name = name
@@ -56,8 +56,8 @@ class ItemDirector:
         
     def create_running_shoes(self):
         """create the running shoes item"""
-        return  self.builder.with_name('run').with_image_path(r'assets/images/running_shoes.png').with_pos((200, 50)).build()
+        return  self.builder.with_name('run').with_image_path(r'./assets/images/running_shoes.png').with_pos(ExploreSprite.get_placement(5.5, 1)).build()
     
     def create_bike(self):
         """create the bike item"""
-        return  self.builder.with_name('bike').with_image_path(r'assets/images/bike.png' ).with_pos((Config.MAP_W-160, Config.MAP_H-30)).build()
+        return  self.builder.with_name('bike').with_image_path(r'./assets/images/bike.png' ).with_pos(ExploreSprite.get_placement(-5, -1.5)).build()

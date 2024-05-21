@@ -19,7 +19,7 @@ class GameState:
         self._running = True
 
         # the current state of the game.
-        self.current_state = 'welcome'
+        self.current_state = 'choose'
 
         # used to toggle a screen where applicable (for example , control menu)
         self.previous_state = None
@@ -106,10 +106,10 @@ class GamePlayer:
             self.__levels[self.gamestate.current_state] = LevelFactory.create_level(level_type=self.gamestate.current_state, screen=self.gamestate.screen, gamestate=self.gamestate)
         return self.__levels[self.gamestate.current_state]
     
-    def play_level(self):
+    async def play_level(self):
         """handle the actual game play, key events, displaying, etc."""
         try:
-            self.__levels[self.gamestate.current_state].play_level()
+            await self.__levels[self.gamestate.current_state].play_level()
         except KeyError:
             # key error expected when the game is restarted so ensure that the game level is rendered first
-            self.render_level().play_level()
+            await self.render_level().play_level()

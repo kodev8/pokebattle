@@ -113,9 +113,13 @@ class TrainerPokemon(Pokemon, AbstractPokemon):
         super().__init__(poke_info, mediator)
 
         # get the back image and trasnform it
-        self.image = pygame.image.load(io.BytesIO(poke_info['back']))
-        self.image = pygame.transform.scale(self.image, (350,350))
+         # get the back image and trasnform it
+        if type(poke_info['back']) == bytes:
+            self.image = pygame.image.load(io.BytesIO(poke_info['back']))
+        else:
+            self.image = pygame.image.load(poke_info['back'])
 
+        self.image = pygame.transform.scale(self.image, (350 * Config.WIDTH_SCALE,350 * Config.HEIGHT_SCALE))
         # create a list of all moves and assign a randome power value by choosing for random moves
         self.moves = [Attack(move['move']['name'] ,random.randint(40, 80)) for 
                       move in random.sample(self.moves, 4)]
@@ -166,13 +170,16 @@ class OtherPokemon(Pokemon, AbstractPokemon):
         super().__init__(poke_info, mediator)
 
         #  get the pokemon facing forward image
-        self.image = pygame.image.load(io.BytesIO(poke_info['front']))
+        if type(poke_info['front']) == bytes:
+            self.image = pygame.image.load(io.BytesIO(poke_info['front']))
+        else:
+            self.image = pygame.image.load((poke_info['front']))
 
         # update it's new offscreen position since it will be coming in from the next direction
-        self.off_screen_pos = Config.SCREEN_WIDTH + 100, 300
+        self.off_screen_pos = Config.SCREEN_WIDTH + 100, 300 * Config.HEIGHT_SCALE
 
         # front images are a bit larger so we scale them down as opposed to the back images
-        self.image = pygame.transform.scale(self.image, (300,300))
+        self.image = pygame.transform.scale(self.image, (300 * Config.WIDTH_SCALE,300 * Config.HEIGHT_SCALE))
 
         self.rect = self.image.get_rect(midbottom=(self.off_screen_pos))
 
@@ -180,7 +187,7 @@ class OtherPokemon(Pokemon, AbstractPokemon):
         self.moves = [Attack(move['move']['name'] ,random.randint(30, 60)) for 
                       move in random.sample(self.moves, 4)]
         
-        self.float_in_pos = Config.SCREEN_WIDTH-200
+        self.float_in_pos = Config.SCREEN_WIDTH-(200*Config.WIDTH_SCALE)
         self.gui_elements=[]
 
     def initialize_for_fight(self, bd):

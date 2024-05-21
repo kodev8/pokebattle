@@ -6,9 +6,16 @@ from config.config import Config
 from aiohttp.client_exceptions import ClientConnectorError
 from abc import ABC, abstractmethod
 import random
+import platform
+import base64
+from PIL import Image
+import io
+from config.requesthandler import JSRequestHandler, PythonRequestHandler
+import json
 
 # suppress runtime errors
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+if platform.system() == 'Windows':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
 class Fetcher(ABC):
 
@@ -69,6 +76,7 @@ class FetchPokemon(Fetcher):
     __max_page = math.ceil(Config.MAX_POKEMON/_LIMIT ) # calculate max number of pages
     _data = {page_number: [] for page_number in range(1,__max_page+1)} # set up empty list of pokemon for each page
     _ERROR = False # Error flag to check if there is an conenctivity error
+    IS_FETCHING = False
     
     def __init__(self, async_method : FetchMethod, local_method : FetchMethod):
         super().__init__()
@@ -107,7 +115,7 @@ class FetchPokemon(Fetcher):
         _ used as a throw away variable"""
         FetchPokemon._counter += 1
 
-    def forward_page(self):
+    async def forward_page(self):
         """ go forward a page and fetch it's data"""
 
         # Facade pattern since Fetch local is abstracted and seems relatively simple *****
@@ -117,7 +125,7 @@ class FetchPokemon(Fetcher):
         if self.not_at_end():
             FetchPokemon._page += 1
             if not FetchPokemon._ERROR:
-                self.fetch()
+                await self.fetch()
   
     def back_page(self):
         """go back a page """
@@ -131,9 +139,7 @@ class FetchPokemon(Fetcher):
 
         # similar to the bridge pattern where the fetch is abstarcted to different types of fetch methods
         # the implementation of the FetchMethod interface can be changed without affecting the Fetcher hierarchy.
-        
-        fetch_method = self.async_method if self.designate_fetch_method() else self.local_method
-        return fetch_method.fetch()
+        return self.local_method.fetch() if not self.designate_fetch_method() else self.async_method.fetch()
             
     def not_at_end(self) -> bool:
         """ function determines if the page is less than the max page"""
@@ -155,7 +161,7 @@ class FetchLocal(FetchMethod):
     def __init__(self, fetcher: Fetcher):
         super().__init__(fetcher)
 
-    def fetch(self):       
+    def fetch(self):    
         return self.fetcher._data[self.fetcher._page]
     
         
@@ -169,15 +175,18 @@ class FetchAysnc(FetchMethod):
         super().__init__(fetcher)
 
     # asynchronous function to get the page or pokemon data from the api
-    async def __get_pokemon(self, session, url, page=False) -> dict:
-        async with session.get(url) as resp:
-            data = await resp.json()
-        
-        # if the page argument is set to true all the results from the page are returned
-        if page:
+    async def __get_pokemon(self, url, page=False) -> dict:
+        # Fetch Page of pokemon e.g. url = "https://pokeapi.co/api/v2/pokemon/?offset=0&limit=20" => {"results": [pokemon1, pokemon2, ...]}
+
+        request_handler = JSRequestHandler(return_type='text') if Config.IS_WEB else PythonRequestHandler()
+        data = await request_handler.get(url)
+
+        if not data: return {}
+        if type(data) == str:
+            data = json.loads(data)
+
+        if page: 
             return data['results']
-        
-        # otherwise another request is made to get the sprite information as well
         else:
 
             img_front_url, img_back_url = data['sprites']['front_default'], data['sprites']['back_default']
@@ -187,91 +196,94 @@ class FetchAysnc(FetchMethod):
                 pass
             
             else:
-                async with session.get(img_front_url) as img_front_bytes:
-                    img_front = await img_front_bytes.read()
 
-                async with session.get(img_back_url) as img_back_bytes:
-                    img_back = await img_back_bytes.read()
+                if Config.IS_WEB:
+                    # brh: blob request handler
+                    brh = JSRequestHandler(return_type='blob')
+                    img_front_bytes = await brh.get(img_front_url) # b64 encoded image 
+                    
+                    # if type(img_front_bytes) == str:
+                    imf_bg4 = base64.b64decode(img_front_bytes.split(',')[1])
+                    imf_io = io.BytesIO(imf_bg4)
+                    img = Image.open(imf_io)
+                    img_front = r'./assets/images/{}-front.png'.format(data['name'])
+                    img.save(img_front, 'PNG')
+                    # else:
+                    #     img_front = img_front_bytes
+                    # img_front = await img_front_bytes.read()
+
+                    # async with session.get(img_back_url) as img_back_bytes:
+                    img_back_bytes = await brh.get(img_back_url)
+                    # if type(img_back_bytes) == str:
+                    imb_64 = base64.b64decode(img_back_bytes.split(',')[1])
+                    imb_io = io.BytesIO(imb_64)
+                    img = Image.open(imb_io)
+                    img_back = r'./assets/images/{}-back.png'.format(data['name'])
+                    img.save(img_back, 'PNG')
+                   
+                else:
+
+                    # should be python request handler
+                    img_front = await request_handler.get(img_front_url, handle='blob')
+                    img_back = await request_handler.get(img_back_url, handle='blob')
+ 
 
                 # return all the relevant data for this game, i.e. pokemon name, valid moves, front and back sprite
-                return {"name":data['name'].split('-')[0], 
+                return {
+                        "name":data['name'].split('-')[0], 
                         "moves": data['moves'], 
                         "front":img_front, 
-                        'back':img_back}
+                        'back':img_back
+                        }
         
-    async def __get_pokemon_page_data(self, links):
+    async def __get_pokemon_page_data(self, links: list[list]):
 
         """ this fucntion gets the data on each 'page'; 
         each page has size of the limit designated by it's fetcher handler"""
 
-        async with aiohttp.ClientSession() as session:
-            # links is a list of lists so index to get all the links as a single list
-            links = links[0]
-            
-            # create an empty list to store asyncio tasks
-            tasks = []
+        # create tasks for fetching data from each URL and append them to the tasks list
+        # using ensure future to schedule co routines
+        tasks = [asyncio.ensure_future(self.__get_pokemon(link['url'])) for link in links]
 
-            # create tasks for fetching data from each URL and append them to the tasks list
-            # using ensure future to schedule co routines
-            for link in links:
-                tasks.append(asyncio.ensure_future(self.__get_pokemon(session, link['url'])))
-             
-            #  wait for the completion of all tasks concurrently and get the results                
-            fetched_pokemon = await asyncio.gather(*tasks)
+        #  wait for the completion of all tasks concurrently and get the results                
+        fetched_pokemon = await asyncio.gather(*tasks)
 
-             # iterate over the fetched pokemon and add them to the _pokemon dictionary
-            for  pokemon in fetched_pokemon:
-                if pokemon is not None:
-                    self.fetcher._data[self.fetcher._page].append(pokemon)
+            # iterate over the fetched pokemon and add them to the _pokemon dictionary
+        for  pokemon in fetched_pokemon:
+            if pokemon is not None:
+                self.fetcher._data[self.fetcher._page].append(pokemon)
+        
+        self.fetcher.IS_FETCHING = False
+        return self.fetcher._data[self.fetcher._page]
                     
     async def __get_page_data(self) -> dict:
         
         """ gets the data for a page (not on the page) this is a request to the pokepai to """
-        async with aiohttp.ClientSession() as session:
 
             # see get_pokemon_page_data for explanation
-            tasks = []
-            
-            url = f"https://pokeapi.co/api/v2/pokemon/?offset={(self.fetcher._page-1) * self.fetcher._LIMIT}&limit={self.fetcher._LIMIT}"
-            tasks.append(asyncio.ensure_future(self.__get_pokemon(session, url, page=True)))
+        url = f"https://pokeapi.co/api/v2/pokemon/?offset={(self.fetcher._page-1) * self.fetcher._LIMIT}&limit={self.fetcher._LIMIT}"
 
-            page = await asyncio.gather(*tasks)
-            
-            return page
+        page = await self.__get_pokemon(url, page=True)
         
-    async def __fetch_async(self):
-    
+        return page
+        
+    async def fetch(self):
+        print('fetching... before')
         # fetch the respective links on a page
         links = await self.__get_page_data()
-        self.fetcher.counter = 1 #nincrements the counter 
-        # used these links to get the data for each pokemon on the page
-        await self.__get_pokemon_page_data(links)
+        self.fetcher.counter = 1 # increments the counter 
+        res = await self.__get_pokemon_page_data(links)
+        print('fetching... after')
 
-    def fetch(self):
+        return res
         
-        # try to fetch from the api
-        try:
-
-            return asyncio.run(self.__fetch_async())
-
-        # if the request cannot access the api because of a a connection error
-        #  an error is raised.
-        except ClientConnectorError:
-            
-            # set the fetcher error to True
-            self.fetcher._ERROR = True
-
-            # return False to indicate that no data could be found due to an eror
-            return False
-        
-
 
 class FetchControls(Fetcher):
     """ controls fetcher based on state of the game"""
     
     _page = 0
 
-    # list of all available controls base on level/gamestate
+    # list of all available controls base on leve
     _data = [
     {
         'header': 'Professor Oak Talks...',

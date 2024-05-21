@@ -4,7 +4,7 @@ from pytmx.util_pygame import load_pygame
 from config.config import Config
 from abc import ABC, abstractmethod
 from typing import Tuple
-    
+
 class Layer(pygame.sprite.Group):
     """ base class for a concrete layer
         this will be used to distingush a from a layer on wich collisions can coccur
@@ -129,7 +129,7 @@ class GameMapTSX(GameEnvironment):
                     # the x and y values are then used to create tile objects from the flyweight image created
                     # they are multiplied to give us the width and height which would be used in the Tile object
                     # correctly display the tile
-                    pos = x * Config.TILE_SIZE, y * Config.TILE_SIZE
+                    pos = x * Config.TILE_X_SPACING, y * Config.TILE_Y_SPACING
 
                     # add the tile to it's respective group, this dependency is injected to decouple the tile from the layer
                     layer_group.add(Tile(pos, tile_image))
